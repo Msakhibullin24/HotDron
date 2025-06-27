@@ -26,45 +26,13 @@ def get_wolf_moves(board):
     moves = []
     for r in range(8):
         for c in range(8):
-            if board[r][c] != SHEEP or board[r][c] != EMPTY:
+            if board[r][c] != SHEEP and board[r][c] != EMPTY:
                 # Wolves move forward diagonally
                 for dr, dc in [(1, -1), (1, 1)]:
                     nr, nc = r + dr, c + dc
                     if 0 <= nr < 8 and 0 <= nc < 8 and board[nr][nc] == EMPTY:
                         moves.append(((r, c), (nr, nc)))
     return moves
-
-def minimax(state, depth, alpha, beta, maximizing_player):
-   if depth == 0 or state.evaluate() in [1000, -1000]:
-       return state.evaluate(), None
-
-   if maximizing_player:
-       max_eval = -math.inf
-       best_move = None
-       for move in state.get_wolf_moves():
-           new_state = state.make_move(move)
-           evaluation, _ = minimax(new_state, depth - 1, alpha, beta, False)
-           if evaluation > max_eval:
-               max_eval = evaluation
-               best_move = move
-           alpha = max(alpha, evaluation)
-           if beta <= alpha:
-               break # Альфа-бета отсечение
-       return max_eval, best_move
-   else:
-       min_eval = math.inf
-       best_move = None
-       for move in state.get_sheep_moves():
-           new_state = state.make_move(move)
-           evaluation, _ = minimax(new_state, depth - 1, alpha, beta, True)
-           if evaluation < min_eval:
-               min_eval = evaluation
-               best_move = move
-           beta = min(beta, evaluation)
-           if beta <= alpha:
-               break # Альфа-бета отсечение
-       return min_eval, best_move
-
 
 class AlgorithmicMoveGenerator:
     """A simple move generator that picks the first available move."""
@@ -80,6 +48,20 @@ class AlgorithmicMoveGenerator:
         # For simplicity, we'll assume it's the board from the GameState object.
         possible_moves = get_wolf_moves(current_board_state)
 
+        sheep_pos_raw = None
+        for r in range(8):
+            for c in range(8):
+                if current_board_state[r][c] == SHEEP:
+                    sheep_pos_raw = (r, c)
+                    break
+            if sheep_pos_raw:
+                break
+                
+        print(sheep_pos_raw)
+        sheepPos = to_algebraic(sheep_pos_raw)
+        print(sheepPos)
+        
+
         if not possible_moves:
             return None  # No moves available
 
@@ -91,71 +73,43 @@ class AlgorithmicMoveGenerator:
         (from_r, from_c), (to_r, to_c) = best_move
         drone_id = current_board_state[from_r][from_c]
 
-        new_board[to_r][to_c] = WOLF
+        new_board[to_r][to_c] = drone_id
         new_board[from_r][from_c] = EMPTY
         
         self.game_state.board = new_board
-        destination_algebraic = to_algebraic((to_r, to_c))
+
+        destination_algebraic = to_algebraic((to_r, to_c)) # TODO: (to_r, to_c) преобразовать в [x, y, z] через CV
 
         return {
             "new_board": new_board,
             "drone": drone_id,
             "to": destination_algebraic,
+            "sheepPos": sheepPos
         }
 
+    # --- МЕТОД ДЛЯ ХОДА ОВЦЫ ---
+    async def get_sheep_move(self, current_board_state):
+        """
+        Вычисляет ход для овцы.
+        Стратегия: выбрать первый доступный ход.
+        """
+        possible_moves = get_sheep_moves(current_board_state)
 
-    def evaluate(self):
-        sheep_moves = get_sheep_moves(self.game_state.board)
-        
-        if not sheep_moves:
-            return 1000
+        if not possible_moves:
+            return {"new_board": None, "from": None, "to": None} # Ходов нет, овца проиграла
 
-        sheep_pos = None
-        for r in range(8):
-            for c in range(8):
-                if self.game_state.board[r][c] == SHEEP:
-                    sheep_pos = (r, c)
-                    break
-            if sheep_pos:
-                break
-        
-        if sheep_pos[0] == 0:
-            return -1000
+        # Выбираем первый доступный ход
+        sheep_move = possible_moves[0]
+        (from_r, from_c), (to_r, to_c) = sheep_move
 
+        # Создаем новое состояние доски
+        new_board = copy.deepcopy(current_board_state)
+        new_board[to_r][to_c] = SHEEP
+        new_board[from_r][from_c] = EMPTY
 
-        score = 0
-        
-        # 1. Расстояние овцы до победного края
-        sheep_dist_to_win = sheep_pos[0]
-        score -= sheep_dist_to_win * 25
-
-
-        # 2. Мобильность овцы
-        sheep_mobility = len(sheep_moves)
-        score -= sheep_mobility * 15
-
-
-        # 3. Характеристики позиции волков
-        wolf_positions = []
-        for r in range(8):
-            for c in range(8):
-                if self.game_state.board[r][c] == WOLF:
-                    wolf_positions.append((r,c))
-        
-        if wolf_positions:
-            # 4. Продвижение волков вперед
-            avg_wolf_row = sum(r for r, c in wolf_positions) / len(wolf_positions)
-            score += avg_wolf_row * 10
-
-
-            # 5. Компактность ("стена" волков)
-            wolf_cols = [c for r, c in wolf_positions]
-            col_spread = max(wolf_cols) - min(wolf_cols)
-            score -= col_spread * 5
-            
-            # 6. Расстояние до овцы
-            dist_to_sheep = sum(abs(r - sheep_pos[0]) + abs(c - sheep_pos[1]) for r, c in wolf_positions)
-            score -= dist_to_sheep * 2
-
-
-        return score
+        # Возвращаем результат в формате, удобном для API
+        return {
+            "new_board": new_board,
+            "from": to_algebraic((from_r, from_c)),
+            "to": to_algebraic((to_r, to_c)),
+        }

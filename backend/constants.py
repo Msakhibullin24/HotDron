@@ -1,16 +1,14 @@
-
-WOLF = 1
 SHEEP = -1
 EMPTY = 0
 
 
-DRONE_IDS = [151, 43, 15, 33]
+DRONE_IDS = [1, 2, 3 ,4]
 SHEEP_ID = 88
 INITIAL_DRONE_POSITIONS = {
-    151: 'A2',
-    43: 'A4',
-    15: 'A6',
-    33: 'A8'
+    1: 'A2',
+    2: 'A4',
+    3: 'A6',
+    4: 'A8'
 }
 INITIAL_SHEEP_POSITION = 'H1'
 API_KEY=''

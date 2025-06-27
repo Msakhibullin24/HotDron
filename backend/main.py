@@ -72,7 +72,7 @@ class GameState:
         wolf_idx = 0
         for r in range(8):
             for c in range(8):
-                if self.board[r][c] == WOLF:
+                if self.board[r][c] in DRONE_IDS:
                     drone_positions[wolf_ids_cycle[wolf_idx]] = to_algebraic((r, c))
                     wolf_idx = (wolf_idx + 1) % len(wolf_ids_cycle)
                 elif self.board[r][c] == SHEEP:
@@ -92,7 +92,7 @@ def print_board(board):
         print(f"{8 - i}|", end="")
         for j, cell in enumerate(row):
             char = " "
-            if cell == WOLF: char = "W"
+            if cell in DRONE_IDS: char = "W"
             elif cell == SHEEP: char = "S"
             elif (i + j) % 2 == 0: char = "."
             print(f" {char}", end="")
@@ -117,13 +117,15 @@ game_state_api = {
     "drone": None, 
     "to": None,
     "moveGenerator": None,
-    "state": None
+    "state": None,
+    "sheepPos": None,
 }
 
 class GameStateResponse(BaseModel):
     status: str
     drone: int | None = None
     to: list[float] | str | None = None
+    sheepPos: str | None = None
 
 @app.get("/game-state", response_model=GameStateResponse)
 async def get_game_state():
@@ -137,7 +139,8 @@ async def stop_game():
     game_state_api.update({
         "status": "stop", 
         "drone": None, 
-        "to": None
+        "to": None,
+        "sheepPos": None,
     })
     return transform_game_state(game_state_api)
 
@@ -150,15 +153,62 @@ async def start_game():
         new_board_state = move_result["new_board"]
         drone_id = move_result["drone"]
         destination = move_result["to"]
+        sheepPos = move_result["sheepPos"]
 
         if new_board_state:
             game_state_api["state"].board = new_board_state
             game_state_api["state"].current_player *= -1
             game_state_api["drone"] = drone_id
             game_state_api["to"] = destination
+            game_state_api["sheepPos"] = sheepPos
+
+            emulate_sheep()
+            
         else:
             print("Algorithm could not find a move.")
 
+    return transform_game_state(game_state_api)
+
+#@app.get("/emulate-sheep", response_model=GameStateResponse)
+async def emulate_sheep(): # TODO сделать норм работу
+    """
+    Эмулирует ход овцы, используя алгоритм.
+    Обновляет состояние доски и возвращает текущее состояние игры.
+    """
+    # Убеждаемся, что игра активна
+    if game_state_api["status"] != 'active':
+        raise HTTPException(
+            status_code=400, 
+            detail="Game is not active. Please start the game first."
+        )
+
+    # 1. Получаем ход овцы от нашего генератора
+    move_result = await game_state_api["moveGenerator"].get_sheep_move(game_state_api["state"].board)
+    
+    # 2. Проверяем, был ли ход сделан
+    if move_result and move_result["new_board"]:
+        new_board_state = move_result["new_board"]
+        from_pos = move_result["from"]
+        to_pos = move_result["to"]
+
+        # 3. Обновляем глобальное состояние игры
+        game_state_api["state"].board = new_board_state
+        game_state_api["state"].current_player *= -1 # Передаем ход волкам
+
+        # Очищаем информацию о последнем ходе дрона, так как ходила овца
+        game_state_api["drone"] = None
+        game_state_api["to"] = None
+        
+        print(f"Sheep moved from {from_pos} to {to_pos}")
+
+    else:
+        # Этот блок выполнится, если у овцы нет ходов (волки победили)
+        print("Sheep has no moves. Wolves win!")
+        game_state_api["status"] = "stop" # Останавливаем игру
+        game_state_api["drone"] = None
+        game_state_api["to"] = "WOLVES_WIN" # Можно передать специальный флаг
+
+    # 4. Возвращаем обновленное состояние через стандартный трансформер
     return transform_game_state(game_state_api)
 
 # --- Interactive Debug Game Loop ---
@@ -247,7 +297,8 @@ def transform_game_state(gameStateRaw):
     return {
         "status": gameStateRaw["status"], 
         "drone": gameStateRaw["drone"], 
-        "to": gameStateRaw["to"]
+        "to": gameStateRaw["to"],
+        "sheepPos": gameStateRaw["sheepPos"]
     }
 
 # --- Main Execution ---
