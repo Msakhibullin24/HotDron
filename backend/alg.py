@@ -1,11 +1,7 @@
 import math
 import copy
-
-
-# Константы для представления фигур
-WOLF = 1
-SHEEP = -1
-EMPTY = 0
+from .helpers import *
+from .constants import *
 
 def is_valid_pos(r, c):
     return 0 <= r < 8 and 0 <= c < 8
@@ -30,7 +26,7 @@ def get_wolf_moves(board):
     moves = []
     for r in range(8):
         for c in range(8):
-            if board[r][c] == WOLF:
+            if board[r][c] != SHEEP or board[r][c] != EMPTY:
                 # Wolves move forward diagonally
                 for dr, dc in [(1, -1), (1, 1)]:
                     nr, nc = r + dr, c + dc
@@ -83,6 +79,7 @@ class AlgorithmicMoveGenerator:
         # The board state needs to be passed in a format this class understands.
         # For simplicity, we'll assume it's the board from the GameState object.
         possible_moves = get_wolf_moves(current_board_state)
+
         if not possible_moves:
             return None  # No moves available
 
@@ -92,11 +89,19 @@ class AlgorithmicMoveGenerator:
         # Create a new state with this move
         new_board = copy.deepcopy(current_board_state)
         (from_r, from_c), (to_r, to_c) = best_move
+        drone_id = current_board_state[from_r][from_c]
+
         new_board[to_r][to_c] = WOLF
         new_board[from_r][from_c] = EMPTY
         
         self.game_state.board = new_board
-        return new_board
+        destination_algebraic = to_algebraic((to_r, to_c))
+
+        return {
+            "new_board": new_board,
+            "drone": drone_id,
+            "to": destination_algebraic,
+        }
 
 
     def evaluate(self):
@@ -104,7 +109,6 @@ class AlgorithmicMoveGenerator:
         
         if not sheep_moves:
             return 1000
-
 
         sheep_pos = None
         for r in range(8):

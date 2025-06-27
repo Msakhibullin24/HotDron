@@ -6,52 +6,39 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-# --- Game Logic (from gamelogic.py) ---
-WOLF = 1
-SHEEP = -1
-EMPTY = 0
+from .helpers import *
+from .constants import *
 
-
-DRONE_IDS = [151, 43, 15, 33]
-SHEEP_ID = 88
-INITIAL_DRONE_POSITIONS = {
-    151: 'A2',
-    43: 'A4',
-    15: 'A6',
-    33: 'A8'
-}
-INITIAL_SHEEP_POSITION = 'H1'
-API_KEY=''
-
-initial_game_state = "151:A2;43:A4;15:A6;33:A8;88:H1;"
-
-
-def to_algebraic(pos):
-    """Converts (row, col) to algebraic notation like 'A1'."""
-    r, c = pos
-    return f"{chr(ord('a') + c)}{8 - r}"
-
-def from_algebraic(cell_str):
-    """Converts algebraic notation like 'A1' to (row, col)."""
-    if not cell_str or len(cell_str) != 2:
-        return None
-    try:
-        c = ord(cell_str[0].lower()) - ord('a')
-        r = 8 - int(cell_str[1])
-        if not (0 <= r < 8 and 0 <= c < 8):
-            return None
-        return r, c
-    except (ValueError, IndexError):
-        return None
+from .alg import AlgorithmicMoveGenerator
+from .gemini import GeminiMoveGenerator
 
 class GameState:
     """Manages the state of the game board."""
-    def __init__(self, wolf_positions, sheep_position):
+    def __init__(self, wolf_positions_alg, sheep_position_alg):
+        """
+        Initializes the game state from algebraic notation.
+        Волки на доске представлены их ID, а не константой WOLF.
+
+        :param wolf_positions_alg: Словарь, отображающий ID дрона в его позицию (e.g., {151: 'A2'}).
+        :param sheep_position_alg: Строка с позицией овцы (e.g., 'H1').
+        """
+        # 1. Инициализируем пустую доску
         self.board = [[EMPTY for _ in range(8)] for _ in range(8)]
-        for r, c in wolf_positions:
-            self.board[r][c] = WOLF
-        self.board[sheep_position[0]][sheep_position[1]] = SHEEP
         self.current_player = SHEEP
+
+        # 2. Расставляем волков (дронов), используя их ID
+        for drone_id, alg_pos in wolf_positions_alg.items():
+            pos = from_algebraic(alg_pos)
+            if pos:
+                r, c = pos
+                # Вместо WOLF ставим ID дрона
+                self.board[r][c] = drone_id
+
+        # 3. Расставляем овцу
+        sheep_pos_coords = from_algebraic(sheep_position_alg)
+        if sheep_pos_coords:
+            r, c = sheep_pos_coords
+            self.board[r][c] = SHEEP
 
     def is_valid_pos(self, r, c):
         return 0 <= r < 8 and 0 <= c < 8
@@ -117,9 +104,6 @@ def print_board(board):
 # --- FastAPI Application Setup ---
 app = FastAPI()
 
-from alg import AlgorithmicMoveGenerator
-from gemini import GeminiMoveGenerator
-
 CELL_TO_COORDS = {}
 try:
     with open('aruco_map.json', 'r') as f:
@@ -128,36 +112,61 @@ try:
 except (FileNotFoundError, json.JSONDecodeError) as e:
     print(f"Warning: Could not load or parse aruco_map.json: {e}")
 
-game_state_api = { "status": "stop", "drone": None, "to": None }
+game_state_api = { 
+    "status": "stop", 
+    "drone": None, 
+    "to": None,
+    "moveGenerator": None,
+    "state": None
+}
 
 class GameStateResponse(BaseModel):
     status: str
     drone: int | None = None
-    to: list[float] | None = None
+    to: list[float] | str | None = None
 
 @app.get("/game-state", response_model=GameStateResponse)
 async def get_game_state():
-    return game_state_api
+    return transform_game_state(game_state_api)
 
-@app.post("/stop", response_model=GameStateResponse)
+@app.get("/stop", response_model=GameStateResponse)
 async def stop_game():
-    game_state_api.update({"status": "stop", "drone": None, "to": None})
-    return game_state_api
+    if(game_state_api["status"] == 'stop'):
+        return transform_game_state(game_state_api)
 
-@app.post("/start", response_model=GameStateResponse)
+    game_state_api.update({
+        "status": "stop", 
+        "drone": None, 
+        "to": None
+    })
+    return transform_game_state(game_state_api)
+
+@app.get("/start", response_model=GameStateResponse)
 async def start_game():
-    # This endpoint is simplified and not connected to the debug loop.
-    return game_state_api
+    if(game_state_api["status"] != 'active'):
+        game_state_api["status"] = 'active'
+
+        move_result = await game_state_api["moveGenerator"].get_next_move(game_state_api["state"].board)
+        new_board_state = move_result["new_board"]
+        drone_id = move_result["drone"]
+        destination = move_result["to"]
+
+        if new_board_state:
+            game_state_api["state"].board = new_board_state
+            game_state_api["state"].current_player *= -1
+            game_state_api["drone"] = drone_id
+            game_state_api["to"] = destination
+        else:
+            print("Algorithm could not find a move.")
+
+    return transform_game_state(game_state_api)
 
 # --- Interactive Debug Game Loop ---
 async def debug_game_loop(mode: str):
     """Runs an interactive game session in the terminal."""
     print(f"--- Starting Interactive Debug Game (Mode: {mode}) ---")
-    
-    initial_wolf_pos = [(0, 1), (0, 3), (0, 5), (0, 7)]
-    initial_sheep_pos = (7, 0)
 
-    game = GameState(initial_wolf_pos, initial_sheep_pos)
+    game = GameState(INITIAL_DRONE_POSITIONS, INITIAL_SHEEP_POSITION)
     
     initial_drone_positions_alg = {DRONE_IDS[i]: to_algebraic(pos) for i, pos in enumerate(initial_wolf_pos)}
     initial_sheep_position_alg = to_algebraic(initial_sheep_pos)
@@ -217,6 +226,30 @@ async def debug_game_loop(mode: str):
             else:
                 print("Algorithm could not find a move.")
 
+def init_game_state():
+    mode = 'alg'
+    game_state_api["state"] = GameState(INITIAL_DRONE_POSITIONS, INITIAL_SHEEP_POSITION)
+    
+    initial_drone_positions_alg = {}
+    initial_sheep_position_alg = {}
+    
+    game_state_api["moveGenerator"] = GeminiMoveGenerator(
+        mode,
+        api_key=API_KEY,
+        drone_ids=DRONE_IDS,
+        sheep_id=SHEEP_ID,
+        initial_drone_positions=initial_drone_positions_alg,
+        initial_sheep_position=initial_sheep_position_alg
+    ) if mode  == 'ai' else AlgorithmicMoveGenerator(game_state_api["state"])
+
+def transform_game_state(gameStateRaw):
+    print(gameStateRaw)
+    return {
+        "status": gameStateRaw["status"], 
+        "drone": gameStateRaw["drone"], 
+        "to": gameStateRaw["to"]
+    }
+
 # --- Main Execution ---
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "debug":
@@ -224,6 +257,6 @@ if __name__ == "__main__":
         if len(sys.argv) > 2 and sys.argv[2] in ["ai", "alg"]:
             mode = sys.argv[2]
         asyncio.run(debug_game_loop(mode))
-    else:
-        print("Starting FastAPI server... (run with 'debug [ai|alg]' for interactive mode)")
-        uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+init_game_state()
