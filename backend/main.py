@@ -149,6 +149,7 @@ async def start_game():
     if(game_state_api["status"] != 'active'):
         game_state_api["status"] = 'active'
 
+        # TODO: сделать получение координат овцы перед get_next_move
         move_result = await game_state_api["moveGenerator"].get_next_move(game_state_api["state"].board)
         new_board_state = move_result["new_board"]
         drone_id = move_result["drone"]

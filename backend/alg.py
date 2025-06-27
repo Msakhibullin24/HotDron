@@ -39,6 +39,7 @@ class AlgorithmicMoveGenerator:
     def __init__(self, initial_game_state):
         self.game_state = initial_game_state
 
+    # TODO: сделать получение координат овцы перед get_next_move
     async def get_next_move(self, current_board_state):
         """
         Calculates the next move for the wolves based on a simple algorithm.
