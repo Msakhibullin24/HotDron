@@ -40,13 +40,13 @@ class UDPLogServer:
     
     def display_log(self, log_entry):
         color_codes = {
-            'drone': '\033[92m',    # Green
-            'landing': '\033[93m',   # Yellow
-            'error': '\033[91m',     # Red
-            'info': '\033[94m',      # Blue
-            'warning': '\033[93m',   # Yellow
-            'critical': '\033[91m',  # Red
-            'unknown': '\033[95m'    # Magenta
+            'drone': '\033[92m',
+            'landing': '\033[93m',
+            'error': '\033[91m',
+            'info': '\033[94m',
+            'warning': '\033[93m',
+            'critical': '\033[91m',
+            'unknown': '\033[95m'
         }
         
         color = color_codes.get(log_entry['log_type'].lower(), '\033[0m')

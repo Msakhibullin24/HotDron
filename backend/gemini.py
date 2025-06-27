@@ -1,4 +1,3 @@
-
 import json
 import asyncio
 import urllib.request
@@ -6,13 +5,7 @@ import urllib.error
 import ssl
 import certifi
 
-# --- Вспомогательная функция для генерации промпта (из предыдущего ответа) ---
 def generate_game_context_prompt(drone_ids: list[int], sheep_id: int, initial_drone_positions: dict[int, str], initial_sheep_position: str) -> str:
-    """
-    Генерирует динамический контекстный промпт с правилами игры и начальным состоянием.
-    Этот промпт будет частью первого сообщения пользователя в беседе.
-    """
-
     drone_ids_str = ", ".join(map(str, drone_ids))
 
     initial_drones_parts = []
@@ -32,54 +25,36 @@ def generate_game_context_prompt(drone_ids: list[int], sheep_id: int, initial_dr
 """
     return MOVE_INITIAL_PROMPT.strip()
 
-# --- Класс для управления общением с Gemini и историей ---
 class GeminiGameAgent:
     def __init__(self, api_key: str,
                  drone_ids: list[int], sheep_id: int, 
                  initial_drone_positions: dict[int, str], initial_sheep_position: str):
         self._api_key = api_key
-        # История сообщений будет храниться здесь.
-        # Формат: [{"role": "user", "content": "text"}, {"role": "model", "content": "text"}, ...]
         self._conversation_history: list[dict] = []
         
-        # Сгенерируем начальный контекстный промпт и добавим его в историю как первое сообщение пользователя.
-        # Это важно, так как Gemini (по умолчанию) без истории не "помнит" предыдущие инструкции.
         initial_context_prompt = generate_game_context_prompt(
             drone_ids, sheep_id, initial_drone_positions, initial_sheep_position
         )
         self.add_message("user", initial_context_prompt)
         print("\n--- Инициализация агента с начальным промптом ---")
-        print(f"Первое сообщение в истории: {self._conversation_history[0]['content'][:200]}...") # Показываем часть
+        print(f"Первое сообщение в истории: {self._conversation_history[0]['content'][:200]}...")
 
     def add_message(self, role: str, content: str):
-        """Добавляет сообщение в историю беседы."""
-        # Убедимся, что роль соответствует ожидаемым Gemini (user/model)
         valid_role = 'model' if role == 'model' else 'user'
         self._conversation_history.append({"role": valid_role, "content": content})
 
     def get_full_history(self) -> list[dict]:
-        """Возвращает текущую полную историю беседы."""
-        # Возвращаем копию, чтобы избежать случайных изменений извне
         return list(self._conversation_history)
 
     async def _make_api_call(self) -> dict:
-        """
-        Выполняет низкоуровневый HTTP-запрос к Gemini API с использованием
-        текущей истории беседы.
-        """
         base_url_text = 'https://generativelanguage.googleapis.com'
         model = 'gemini-2.5-flash'
         url = f"{base_url_text}/v1beta/models/{model}:generateContent?key={self._api_key}"
         
         print(f"COMMUNICATE WITH GEMINI URL: {url}")
-        # print(f"Current full history being sent: {json.dumps(self._conversation_history, indent=2)}") # Для отладки
 
-        # Преобразование формата сообщений из истории в формат, требуемый Gemini API
-        # Gemini API ожидает 'parts': [{'text': ...}] и 'role': 'user'/'model'
         gemini_api_formatted_content = []
         for message in self._conversation_history:
-            # Роль 'model' в Gemini API соответствует 'model'
-            # Все остальные роли (например, 'user') будут преобразованы в 'user'
             role = 'model' if message['role'] == 'model' else 'user'
             gemini_api_formatted_content.append({
                 'role': role,
@@ -87,12 +62,11 @@ class GeminiGameAgent:
             })
 
         body = {
-            'contents': gemini_api_formatted_content, # Отправляем ВСЮ историю
+            'contents': gemini_api_formatted_content,
             'generationConfig': {
                 'temperature': 1.2
             }
         }
-        # print(f"REQUEST BODY: {json.dumps(body, indent=2)}") # Для отладки
 
         headers = {
             'Content-Type': 'application/json',
@@ -100,11 +74,10 @@ class GeminiGameAgent:
 
         request_body_bytes = json.dumps(body).encode('utf-8')
         
-        # Create an SSL context using certifi's certificates
         ssl_context = ssl.create_default_context(cafile=certifi.where())
         req = urllib.request.Request(url, data=request_body_bytes, headers=headers, method='POST')
 
-        response_text = "" # Для использования в случае JSONDecodeError
+        response_text = ""
         try:
             with await asyncio.to_thread(urllib.request.urlopen, req, context=ssl_context) as response:
                 status_code = response.getcode()
@@ -127,24 +100,16 @@ class GeminiGameAgent:
             raise
 
     async def send_current_state_and_get_response(self, current_state_str: str) -> str:
-        """
-        Добавляет текущее состояние игры как новое сообщение пользователя в историю,
-        отправляет всю историю в Gemini и возвращает ответ модели,
-        добавляя его также в историю.
-        """
-        # Добавляем текущее состояние как новое сообщение пользователя
         self.add_message("user", f"Текущее состояние: {current_state_str}")
         
         print("\n--- Отправка запроса в Gemini (с полной историей) ---")
         try:
             gemini_response = await self._make_api_call()
-            # print(f"GEMINI RAW RESPONSE: {json.dumps(gemini_response, indent=2)}") # Для отладки
 
             if gemini_response and 'candidates' in gemini_response and len(gemini_response['candidates']) > 0:
                 first_candidate = gemini_response['candidates'][0]
                 if 'content' in first_candidate and 'parts' in first_candidate['content'] and len(first_candidate['content']['parts']) > 0:
                     llm_response_text = first_candidate['content']['parts'][0]['text'].strip()
-                    # Добавляем ответ модели в историю
                     self.add_message("model", llm_response_text)
                     return llm_response_text
                 else:
@@ -156,10 +121,8 @@ class GeminiGameAgent:
 
         except Exception as e:
             print(f"Ошибка при получении ответа от Gemini: {e}")
-            # В случае ошибки, можно вернуть пустую строку или предпринять какой-либо запасной вариант
             return ""
 
-# --- Gemini Move Generator ---
 class GeminiMoveGenerator:
     def __init__(self, mode, api_key=None, drone_ids=None, sheep_id=None, initial_drone_positions=None, initial_sheep_position=None):
         self.mode = mode

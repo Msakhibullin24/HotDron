@@ -90,18 +90,10 @@ class HotDrone:
     def run(self) -> None:
         z = 1.1
 
-
-        # self.takeoff(z=z, delay=0.5)
         while True:
             telem = self.get_telemetry(frame_id="body")
             self.logger.info(telem)
             self.wait(0.5)
-
-        # self.navigate_wait(x=0, y=0, z=z, speed=0.5, frame_id="aruco_81", tolerance=0.2)
-        # self.navigate_wait(x=0.5625, y=0.5625, z=z, speed=0.5, frame_id="aruco_map", tolerance=0.2)
-        # self.wait(10)
-
-        # self.land()
 
     def send_fake_pos(self):
         pub = rospy.Publisher('/mavros/vision_pose/pose', PoseStamped, queue_size=1)
