@@ -1,6 +1,7 @@
 import math
 import logging
 import sys
+import time
 
 import rospy
 from clover import srv
@@ -118,3 +119,12 @@ class HotDrone:
         pub.publish(msg)
         return pub
 
+    def run(self) -> None:
+        time.sleep(5)
+        print("555")
+        pass
+
+    def emergency_land(self) -> None:
+        time.sleep(5)
+        print("666")
+        pass

@@ -1,0 +1,67 @@
+---
+- name: Drone Control System
+  hosts: drones
+  gather_facts: false
+  vars:
+    home_dir: /home/pi
+    drone_script: drone.py
+    land_script: land.py
+    lib_script: lib.py
+
+  tasks:
+    # Copy all scripts to all robots
+    - name: Copy drone, land, and library scripts
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ home_dir }}/{{ item }}"
+        mode: '0755'
+      loop:
+        - "{{ drone_script }}"
+        - "{{ land_script }}"
+        - "{{ lib_script }}"
+
+    # Wait for first button press
+    - name: Wait for launch command
+      ansible.builtin.pause:
+        prompt: "Press ENTER to launch drones"
+      delegate_to: localhost
+      run_once: true
+
+    # Launch drone.py on all robots
+    - name: Start drone program
+      ansible.builtin.shell: |
+        nohup python3 {{ home_dir }}/{{ drone_script }} > {{ home_dir }}/drone.log 2>&1 &
+        echo $! > {{ home_dir }}/drone.pid
+      args:
+        executable: /bin/bash
+
+    # Wait for second button press
+    - name: Wait for termination command
+      ansible.builtin.pause:
+        prompt: "Press ENTER to land drones"
+      delegate_to: localhost
+      run_once: true
+
+    # Terminate drone.py and launch land.py
+    - name: Stop drone program
+      ansible.builtin.shell: |
+        if [ -f {{ home_dir }}/drone.pid ]; then
+          kill $(cat {{ home_dir }}/drone.pid) 2>/dev/null || true
+          rm -f {{ home_dir }}/drone.pid
+        fi
+      ignore_errors: true
+
+    - name: Execute landing sequence
+      ansible.builtin.shell: python3 {{ home_dir }}/{{ land_script }}
+      async: 300  # 5 minutes timeout
+      poll: 0     # Fire and forget
+      register: landing_jobs
+
+    - name: Wait for all drones to complete landing
+      ansible.builtin.async_status:
+        jid: "{{ landing_jobs.ansible_job_id }}"
+      register: landing_result
+      until: landing_result.finished
+      retries: 60  # Check for 5 minutes (60 * 5 seconds)
+      delay: 5     # Check every 5 seconds
+      when: landing_jobs.ansible_job_id is defined
