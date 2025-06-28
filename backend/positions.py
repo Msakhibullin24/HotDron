@@ -1,6 +1,29 @@
 import cv2
 import requests
 import numpy as np
+from popukai import get_converted_coords
+
+# Получение кадров из MJPEG-потока
+def get_latest_frame(url):
+    stream = requests.get(url, stream=True)
+    bytes_data = b''
+    for chunk in stream.iter_content(chunk_size=1024):
+        bytes_data += chunk
+        a = bytes_data.find(b'\xff\xd8')  # Start of JPEG
+        b = bytes_data.find(b'\xff\xd9')  # End of JPEG
+
+        while a != -1 and b != -1 and b > a:
+            jpg = bytes_data[a:b+2]
+            bytes_data = bytes_data[b+2:]
+            frame = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+            yield frame
+            a = bytes_data.find(b'\xff\xd8')
+            b = bytes_data.find(b'\xff\xd9')
+
+# Настройка ArUco словаря и параметров
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
+aruco_params = cv2.aruco.DetectorParameters()
+
 import json
 from .popukai import get_converted_coords
 from .constants import DRONE_IDS, SHEEP_ID, stream_url

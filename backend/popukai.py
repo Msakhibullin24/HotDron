@@ -1,7 +1,7 @@
 def convert_to_json_coords(user_x, user_y):
 
-    json_x = -0.0105228 * user_x + 1.606
-    json_y = -0.00109677 * user_y + 1.606
+    json_x = -0.00662879 * user_x + 2.127841
+    json_y = -0.00559701 * user_y + 1.816231
     
     return {
         "x": round(json_x, 4),
