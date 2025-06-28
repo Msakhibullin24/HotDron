@@ -125,6 +125,7 @@ async def start_game():
             
         else:
             print("Algorithm could not find a move.")
+            raise HTTPException(status_code=404, detail="Algorithm could not find a move")
     finally:
         return transform_game_state(game_state_api)
 
