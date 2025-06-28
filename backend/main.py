@@ -203,7 +203,7 @@ if __name__ == "__main__":
         mode = "ai"
         if len(sys.argv) > 2 and sys.argv[2] in ["ai", "alg"]:
             mode = sys.argv[2]
-        asyncio.run(debug_game_loop(mode))
+        # asyncio.run(debug_game_loop(mode))
 
 
 game_state_api = init_game_state(game_state_api)
