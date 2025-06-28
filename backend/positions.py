@@ -100,6 +100,7 @@ def get_sheep_position():
     return all_positions.get(SHEEP_ID)
 
 def get_cell_from_coords(coords):
+    print(f'{coords}')
     """
     Finds the closest cell in the aruco_map.json file to the given coordinates.
     """
@@ -120,7 +121,7 @@ def get_cell_from_coords(coords):
     closest_cell = None
     
     for cell_data in black_cells:
-        dist = np.linalg.norm(np.array(coords) - np.array([cell_data['x'], cell_data['y'], cell_data['z']]))
+        dist = np.linalg.norm(np.array([coords['x'], coords['y'], 0]) - np.array([cell_data['x'], cell_data['y'], cell_data['z']]))
         if dist < min_dist:
             min_dist = dist
             closest_cell = cell_data['cell']
@@ -148,6 +149,7 @@ def get_block_sheep_positions(sheep_cell: str):
         return []
 
     r, c = current_pos
+    print(f'r{r} c{c}')
     neighboring_cells = []
     
     # Define the four diagonal directions for blocking

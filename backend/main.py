@@ -43,25 +43,40 @@ async def get_game_state():
 @app.get("/positions")
 async def read_positions():
     positions = get_positions()
-    if "error" in positions:
-        return ({
-            "drone": None, 
-            "to": None,
-            "sheepPos": None,
-        })
+    if "error" in positions or not positions:
+        raise HTTPException(status_code=404, detail="No drone positions found")
+
+    return positions
+
+@app.get("/drone-positions")
+async def read_positions():
+    positions = get_drone_positions()
+    if "error" in positions or not positions:
+        raise HTTPException(status_code=404, detail="No drone positions found")
 
     return positions
 
 @app.get("/start", response_model=GameStateResponse)
 async def start_game():
-    if(game_state_api["status"] != 'active'):
-        game_state_api["status"] = 'active'
+    if game_state_api["status"] == 'active':
+        return transform_game_state(game_state_api)
 
-        #получение актуальной позиции овцы и обновление состояния
-        new_sheep_pos = get_sheep_position()
-        sheep_cell = get_cell_from_coords(new_sheep_pos)
-        game_state_api = set_sheep_pos(game_state_api, sheep_cell)
+    game_state_api["status"] = 'active'
 
+    # Get current sheep position and update state
+    new_sheep_pos = get_sheep_position()
+    if not new_sheep_pos:
+        game_state_api["status"] = 'stop'  # Revert status
+        raise HTTPException(status_code=404, detail="Sheep position not found")
+
+    sheep_cell = get_cell_from_coords(new_sheep_pos)
+    if not sheep_cell:
+        game_state_api["status"] = 'stop'  # Revert status
+        raise HTTPException(status_code=404, detail=f"Could not determine cell for sheep at coords {new_sheep_pos}")
+
+    set_sheep_pos(game_state_api, sheep_cell)
+
+    try:
         move_result = await game_state_api["moveGenerator"].get_next_move(game_state_api["state"].board)
         new_board_state = move_result["new_board"]
         drone_id = move_result["drone"]
@@ -79,8 +94,8 @@ async def start_game():
             
         else:
             print("Algorithm could not find a move.")
-
-    return transform_game_state(game_state_api)
+    finally:
+        return transform_game_state(game_state_api)
 
 
 @app.get("/stop", response_model=GameStateResponse)
@@ -99,8 +114,14 @@ async def stop_game():
 @app.get("/circle-sheep")
 async def circle_sheep():
     new_sheep_pos = get_sheep_position()
+    if not new_sheep_pos:
+        raise HTTPException(status_code=404, detail="Sheep position not found")
+
     print(f'pos {new_sheep_pos}')
     sheep_cell = get_cell_from_coords(new_sheep_pos)
+    if not sheep_cell:
+        raise HTTPException(status_code=404, detail=f"Could not determine cell for sheep at coords {new_sheep_pos}")
+        
     print(f'cell {sheep_cell}')
     return get_block_sheep_positions(sheep_cell)
 
