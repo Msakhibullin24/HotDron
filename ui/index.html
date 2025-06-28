@@ -38,7 +38,8 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/game-state`);
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
                 gameStateDisplay.textContent = JSON.stringify(data, null, 2);
@@ -52,22 +53,32 @@
         startButton.addEventListener('click', async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/start`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
                 gameStateDisplay.textContent = `Game started!\n\n${JSON.stringify(data, null, 2)}`;
             } catch (error) {
                 console.error('Error starting game:', error);
-                gameStateDisplay.textContent = `Error starting game: ${error.message}`;
+                // gameStateDisplay.textContent = `Error starting game: ${error.message}`;
+                alert(`Error starting game: ${error.message}`);
             }
         });
 
         stopButton.addEventListener('click', async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/stop`);
+                 if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
                 gameStateDisplay.textContent = `Game stopped.\n\n${JSON.stringify(data, null, 2)}`;
             } catch (error) {
                 console.error('Error stopping game:', error);
                 gameStateDisplay.textContent = `Error stopping game: ${error.message}`;
+                alert(`Error stopping game: ${error.message}`);
             }
         });
 

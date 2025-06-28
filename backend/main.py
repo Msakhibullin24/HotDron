@@ -4,6 +4,7 @@ import sys
 import copy
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .helpers import *
@@ -12,6 +13,21 @@ from .positions import *
 from .game_state import GameState, init_game_state, set_sheep_pos
 
 app = FastAPI()
+origins = [
+    "http://localhost",
+    "http://localhost:8080", # Если вы будете запускать HTML через какой-нибудь live server
+    "http://127.0.0.1",
+    "http://127.0.0.1:8000",
+    "null"  # <-- ЭТО САМОЕ ВАЖНОЕ ДЛЯ ЛОКАЛЬНЫХ ФАЙЛОВ (file://)
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Разрешить все методы (GET, POST и т.д.)
+    allow_headers=["*"], # Разрешить все заголовки
+)
 
 CELL_TO_COORDS = {}
 try:

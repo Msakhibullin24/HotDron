@@ -34,9 +34,9 @@ if __name__ == '__main__':
 
     pts1 = np.float32([[147, 59], [443, 33], [457, 338], [166, 347]])
     
-    width, height = 600, 700
+    width, height = 700, 700
     pts2 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
-    
+
     matrix = cv2.getPerspectiveTransform(pts1, pts2)
 
     frame_gen = get_latest_frame(stream_url)

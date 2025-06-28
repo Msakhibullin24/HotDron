@@ -122,3 +122,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 drone/inventory.ini
+
+.DS_Store
