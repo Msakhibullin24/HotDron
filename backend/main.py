@@ -11,6 +11,7 @@ from .helpers import *
 from .constants import *
 from .positions import *
 from .game_state import GameState, init_game_state, set_sheep_pos
+from starlette.responses import FileResponse 
 
 app = FastAPI()
 origins = [
@@ -66,6 +67,10 @@ class GameStateResponse(BaseModel):
     to: list[float] | str | None = None
     sheepPos: str | None = None
     board: list[list[int]] | None = None
+
+@app.get("/")
+async def read_index():
+    return FileResponse('./ui/index.html')
 
 @app.get("/game-state", response_model=GameStateResponse)
 async def get_game_state(board: bool = False):

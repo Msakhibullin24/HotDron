@@ -3,6 +3,7 @@ from .constants import *
 
 from .alg import AlgorithmicMoveGenerator
 from .gemini import GeminiMoveGenerator
+from .positions import get_sheep_position, get_cell_from_coords
 
 class GameState:
     def __init__(self, wolf_positions_alg, sheep_position_alg):
@@ -66,7 +67,16 @@ class GameState:
 
 def init_game_state(game_state_api):
     mode = 'alg'
-    game_state_api["state"] = GameState(INITIAL_DRONE_POSITIONS, INITIAL_SHEEP_POSITION)
+
+    sheep_pos = get_sheep_position()
+
+    sheep_cell = get_cell_from_coords(sheep_pos)
+    if(not sheep_cell):
+        sheep_cell = INITIAL_SHEEP_POSITION
+
+    print(f'SHEEP_POS {sheep_cell}')
+
+    game_state_api["state"] = GameState(INITIAL_DRONE_POSITIONS, sheep_cell)
     
     initial_drone_positions_alg = {}
     initial_sheep_position_alg = {}
