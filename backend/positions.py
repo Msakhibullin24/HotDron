@@ -1,7 +1,27 @@
 import cv2
 import requests
 import numpy as np
+import json
 from .popukai import get_converted_coords
+from .constants import DRONE_IDS, SHEEP_ID, stream_url
+
+def to_algebraic(pos):
+    """Converts (row, col) to algebraic notation like 'A1'."""
+    r, c = pos
+    return f"{chr(ord('a') + c)}{8 - r}"
+
+def from_algebraic(cell_str):
+    """Converts algebraic notation like 'A1' to (row, col)."""
+    if not cell_str or len(cell_str) != 2:
+        return None
+    try:
+        c = ord(cell_str[0].lower()) - ord('a')
+        r = 8 - int(cell_str[1])
+        if not (0 <= r < 8 and 0 <= c < 8):
+            return None
+        return r, c
+    except (ValueError, IndexError):
+        return None
 
 # Настройка ArUco словаря и параметров
 ARUCO_DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
@@ -27,7 +47,7 @@ def get_frame_from_stream(url):
         return None
     return None
 
-def get_positions(stream_url: str):
+def get_positions():
     frame = get_frame_from_stream(stream_url)
     if frame is None:
         return {"error": "Could not get frame from stream"}
@@ -56,8 +76,89 @@ def get_positions(stream_url: str):
             
     return positions
 
-if __name__ == '__main__':
-    # Пример использования
-    stream_url = 'http://192.168.2.59:8080/stream?topic=/main_camera/image_raw'
-    positions = get_positions(stream_url)
-    print(positions)
+
+
+def get_drone_positions():
+    """
+    Gets the positions of only the drones.
+    """
+    all_positions = get_positions()
+    if "error" in all_positions:
+        return all_positions
+    
+    drone_positions = {id: pos for id, pos in all_positions.items() if id in DRONE_IDS}
+    return drone_positions
+
+def get_sheep_position():
+    """
+    Gets the position of the sheep.
+    """
+    all_positions = get_positions()
+    if "error" in all_positions:
+        return all_positions
+        
+    return all_positions.get(SHEEP_ID)
+
+def get_cell_from_coords(coords):
+    """
+    Finds the closest cell in the aruco_map.json file to the given coordinates.
+    """
+    if not coords:
+        return None
+
+    try:
+        with open('aruco_map.json', 'r') as f:
+            aruco_map = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+    black_cells = [item for item in aruco_map if item.get('length') == 0.27 and 'cell' in item]
+    if not black_cells:
+        return None
+
+    min_dist = float('inf')
+    closest_cell = None
+    
+    for cell_data in black_cells:
+        dist = np.linalg.norm(np.array(coords) - np.array([cell_data['x'], cell_data['y'], cell_data['z']]))
+        if dist < min_dist:
+            min_dist = dist
+            closest_cell = cell_data['cell']
+            
+    return closest_cell
+
+def get_block_sheep_positions(sheep_cell: str):
+    """
+    Finds the coordinates of the black cells adjacent to the sheep's current cell.
+    """
+    if not sheep_cell:
+        return []
+
+    try:
+        with open('aruco_map.json', 'r') as f:
+            aruco_map = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+    # Create a quick lookup map for cell name to coordinates
+    cell_map = {item['cell']: item for item in aruco_map if 'cell' in item and item.get('length') == 0.27}
+    
+    current_pos = from_algebraic(sheep_cell)
+    if not current_pos:
+        return []
+
+    r, c = current_pos
+    neighboring_cells = []
+    
+    # Define the four diagonal directions for blocking
+    diagonal_moves = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+    
+    for dr, dc in diagonal_moves:
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < 8 and 0 <= nc < 8:
+            neighbor_cell_alg = to_algebraic((nr, nc))
+            if neighbor_cell_alg in cell_map:
+                neighboring_cells.append(cell_map[neighbor_cell_alg])
+                
+    # Return only the coordinates
+    return [[cell['x'], cell['y'], cell['z']] for cell in neighboring_cells]

@@ -81,3 +81,27 @@ def init_game_state(game_state_api):
     ) if mode  == 'ai' else AlgorithmicMoveGenerator(game_state_api["state"])
 
     return game_state_api
+
+def set_sheep_pos(game_state_api, new_sheep_pos):
+    """
+    Updates the sheep's position on the board and in the game state.
+    """
+    board = game_state_api["state"].board
+    
+    # Find and remove the old sheep position
+    for r in range(8):
+        for c in range(8):
+            if board[r][c] == SHEEP:
+                board[r][c] = EMPTY
+                break
+    
+    # Add the new sheep position
+    new_pos_coords = from_algebraic(new_sheep_pos)
+    if new_pos_coords:
+        r, c = new_pos_coords
+        board[r][c] = SHEEP
+        game_state_api["sheepPos"] = new_sheep_pos
+    else:
+        print(f"Error: Invalid algebraic notation for new sheep position: {new_sheep_pos}")
+
+    return game_state_api
