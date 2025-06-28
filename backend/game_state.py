@@ -1,202 +1,107 @@
-import math
-import copy
+from .helpers import *
+from .constants import *
 
-
-# Константы для представления фигур
-WOLF = 1
-SHEEP = -1
-EMPTY = 0
-
+from .alg import AlgorithmicMoveGenerator
+from .gemini import GeminiMoveGenerator
 
 class GameState:
-   def __init__(self, wolf_positions, sheep_position):
+    def __init__(self, wolf_positions_alg, sheep_position_alg):
+        self.board = [[EMPTY for _ in range(8)] for _ in range(8)]
+        self.current_player = SHEEP
 
-       self.board = [[EMPTY for _ in range(8)] for _ in range(8)]
-       for r, c in wolf_positions:
-           self.board[r][c] = WOLF
-       self.board[sheep_position[0]][sheep_position[1]] = SHEEP
-       self.current_player = SHEEP
+        for drone_id, alg_pos in wolf_positions_alg.items():
+            pos = from_algebraic(alg_pos)
+            if pos:
+                r, c = pos
+                self.board[r][c] = drone_id
 
+        sheep_pos_coords = from_algebraic(sheep_position_alg)
+        if sheep_pos_coords:
+            r, c = sheep_pos_coords
+            self.board[r][c] = SHEEP
 
-   def is_valid_pos(self, r, c):
-       return 0 <= r < 8 and 0 <= c < 8
+    def is_valid_pos(self, r, c):
+        return 0 <= r < 8 and 0 <= c < 8
 
+    def get_sheep_moves(self):
+        moves = []
+        for r in range(8):
+            for c in range(8):
+                if self.board[r][c] == SHEEP:
+                    for dr in [-1, 1]:
+                        for dc in [-1, 1]:
+                            nr, nc = r + dr, c + dc
+                            if self.is_valid_pos(nr, nc) and self.board[nr][nc] == EMPTY:
+                                moves.append(((r, c), (nr, nc)))
+                    return moves
+        return moves
 
-   def get_sheep_moves(self):
-       moves = []
-       for r in range(8):
-           for c in range(8):
-               if self.board[r][c] == SHEEP:
-                   for dr in [-1, 1]:
-                       for dc in [-1, 1]:
-                           nr, nc = r + dr, c + dc
-                           if self.is_valid_pos(nr, nc) and self.board[nr][nc] == EMPTY:
-                               moves.append(((r, c), (nr, nc)))
-                   return moves
-       return moves
+    def make_move(self, move):
+        new_state = copy.deepcopy(self)
+        (from_r, from_c), (to_r, to_c) = move
+        piece = new_state.board[from_r][from_c]
+        new_state.board[to_r][to_c] = piece
+        new_state.board[from_r][from_c] = EMPTY
+        new_state.current_player *= -1
+        return new_state
 
+    def get_board_state_str(self):
+        drone_positions = {}
+        sheep_position = None
+        wolf_ids_cycle = [151, 43, 15, 33]
+        wolf_idx = 0
+        for r in range(8):
+            for c in range(8):
+                if self.board[r][c] in DRONE_IDS:
+                    drone_positions[wolf_ids_cycle[wolf_idx]] = to_algebraic((r, c))
+                    wolf_idx = (wolf_idx + 1) % len(wolf_ids_cycle)
+                elif self.board[r][c] == SHEEP:
+                    sheep_position = to_algebraic((r,c))
+        
+        state_parts = [f"{id}:{pos}" for id, pos in drone_positions.items()]
+        if sheep_position:
+            state_parts.append(f"88:{sheep_position}")
+        return ";".join(state_parts) + ";"
 
-   def get_wolf_moves(self):
-       moves = []
-       for r in range(8):
-           for c in range(8):
-               if self.board[r][c] == WOLF:
-                   dr = 1
-                   for dc in [-1, 1]:
-                       nr, nc = r + dr, c + dc
-                       if self.is_valid_pos(nr, nc) and self.board[nr][nc] == EMPTY:
-                           moves.append(((r, c), (nr, nc)))
-       return moves
-
-
-   def make_move(self, move):
-
-
-       new_state = copy.deepcopy(self)
-       from_r, from_c = move[0]
-       to_r, to_c = move[1]
-      
-       piece = new_state.board[from_r][from_c]
-       new_state.board[to_r][to_c] = piece
-       new_state.board[from_r][from_c] = EMPTY
-       new_state.current_player *= -1
-       return new_state
-
-
-   def evaluate(self):
-
-       sheep_moves = self.get_sheep_moves()
-      
-       if not sheep_moves:
-           return 1000 # Победа волков
-
-
-       sheep_pos = None
-       for r in range(8):
-           for c in range(8):
-               if self.board[r][c] == SHEEP:
-                   sheep_pos = (r, c)
-                   break
-           if sheep_pos:
-               break
-      
-       if sheep_pos[0] == 0:
-           return -1000 # Победа овцы
-
-
-       wolf_positions = []
-       for r in range(8):
-           for c in range(8):
-               if self.board[r][c] == WOLF:
-                   wolf_positions.append((r,c))
-
-
-       # Критически важная проверка: если овца прорвалась за линию хотя бы одного волка
-       sheep_row = sheep_pos[0]
-       wolf_rows = [r for r, c in wolf_positions]
-       if any(sheep_row < r for r in wolf_rows):
-           return -900 # Почти поражение для волков, этого нужно избегать любой ценой
-
-
-       avg_wolf_row = sum(wolf_rows) / len(wolf_positions)
-
-
-       # 1. Штраф за нарушение строя (разброс по вертикали)
-       row_variance = sum((r - avg_wolf_row) ** 2 for r in wolf_rows)
-       wall_cohesion_penalty = row_variance * 25 # Очень высокий штраф
-
-
-       # 2. Бонус за продвижение стены вперед
-       wall_advancement_bonus = avg_wolf_row * 20
-
-
-       # 3. Штраф за мобильность овцы
-       mobility_penalty = len(sheep_moves) * 10
-
-
-       # 4. Штраф за расстояние до овцы
-       dist_to_sheep = sum(abs(r - sheep_row) for r in wolf_rows)
-       proximity_penalty = dist_to_sheep * 5
-
-
-       score = wall_advancement_bonus - wall_cohesion_penalty - proximity_penalty - mobility_penalty
-       return score
-
-
-def minimax(state, depth, alpha, beta, maximizing_player):
-
-
-   if depth == 0 or state.evaluate() in [1000, -1000]:
-       return state.evaluate(), None
-
-
-   if maximizing_player:
-       max_eval = -math.inf
-       best_move = None
-       for move in state.get_wolf_moves():
-           new_state = state.make_move(move)
-           evaluation, _ = minimax(new_state, depth - 1, alpha, beta, False)
-           if evaluation > max_eval:
-               max_eval = evaluation
-               best_move = move
-           alpha = max(alpha, evaluation)
-           if beta <= alpha:
-               break # Альфа-бета отсечение
-       return max_eval, best_move
-   else:
-       min_eval = math.inf
-       best_move = None
-       for move in state.get_sheep_moves():
-           new_state = state.make_move(move)
-           evaluation, _ = minimax(new_state, depth - 1, alpha, beta, True)
-           if evaluation < min_eval:
-               min_eval = evaluation
-               best_move = move
-           beta = min(beta, evaluation)
-           if beta <= alpha:
-               break # Альфа-бета отсечение
-       return min_eval, best_move
-
-
-def to_algebraic(pos):
-   r, c = pos
-   return f"{chr(ord('a') + c)}{8 - r}"
 
 def init_game_state(game_state_api):
-    from backend.alg import AlgorithmicMoveGenerator
+    mode = 'alg'
+    game_state_api["state"] = GameState(INITIAL_DRONE_POSITIONS, INITIAL_SHEEP_POSITION)
     
-    initial_wolf_pos = [(0, 1), (0, 3), (0, 5), (0, 7)]
-    initial_sheep_pos = (7, 0) 
+    initial_drone_positions_alg = {}
+    initial_sheep_position_alg = {}
     
-    game_state = GameState(initial_wolf_pos, initial_sheep_pos)
-    
-    game_state_api["state"] = game_state
-    game_state_api["moveGenerator"] = AlgorithmicMoveGenerator(game_state)
-    
+    game_state_api["moveGenerator"] = GeminiMoveGenerator(
+        mode,
+        api_key=API_KEY,
+        drone_ids=DRONE_IDS,
+        sheep_id=SHEEP_ID,
+        initial_drone_positions=initial_drone_positions_alg,
+        initial_sheep_position=initial_sheep_position_alg
+    ) if mode  == 'ai' else AlgorithmicMoveGenerator(game_state_api["state"])
+
     return game_state_api
 
-def set_sheep_pos(game_state_api, sheep_cell):
-    from .helpers import from_algebraic
-    if not game_state_api or "state" not in game_state_api:
-        return
-
-    sheep_pos = from_algebraic(sheep_cell)
-    if sheep_pos is None:
-        return
-
-    # Find old sheep position and remove it
-    old_sheep_pos = None
+def set_sheep_pos(game_state_api, new_sheep_pos):
+    """
+    Updates the sheep's position on the board and in the game state.
+    """
+    board = game_state_api["state"].board
+    
+    # Find and remove the old sheep position
     for r in range(8):
         for c in range(8):
-            if game_state_api["state"].board[r][c] == SHEEP:
-                old_sheep_pos = (r, c)
+            if board[r][c] == SHEEP:
+                board[r][c] = EMPTY
                 break
-        if old_sheep_pos:
-            break
     
-    if old_sheep_pos:
-        game_state_api["state"].board[old_sheep_pos[0]][old_sheep_pos[1]] = EMPTY
+    # Add the new sheep position
+    new_pos_coords = from_algebraic(new_sheep_pos)
+    if new_pos_coords:
+        r, c = new_pos_coords
+        board[r][c] = SHEEP
+        game_state_api["sheepPos"] = new_sheep_pos
+    else:
+        print(f"Error: Invalid algebraic notation for new sheep position: {new_sheep_pos}")
 
-    # Set new sheep position
-    game_state_api["state"].board[sheep_pos[0]][sheep_pos[1]] = SHEEP
-    game_state_api["sheepPos"] = sheep_cell
+    return game_state_api
