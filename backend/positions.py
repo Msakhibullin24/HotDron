@@ -1,7 +1,9 @@
 import cv2
 import requests
 import numpy as np
-from popukai import get_converted_coords
+import json
+from .popukai import get_converted_coords
+from .constants import DRONE_IDS, SHEEP_ID, stream_url
 
 # Получение кадров из MJPEG-потока
 def get_latest_frame(url):
@@ -24,9 +26,6 @@ def get_latest_frame(url):
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
 aruco_params = cv2.aruco.DetectorParameters()
 
-import json
-from .popukai import get_converted_coords
-from .constants import DRONE_IDS, SHEEP_ID, stream_url
 
 def to_algebraic(pos):
     """Converts (row, col) to algebraic notation like 'A1'."""

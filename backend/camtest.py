@@ -1,3 +1,30 @@
+import numpy as np
+import cv2
+import requests
+from popukai import get_converted_coords
+
+
+ARUCO_DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
+ARUCO_PARAMS = cv2.aruco.DetectorParameters()
+DETECTOR = cv2.aruco.ArucoDetector(ARUCO_DICT, ARUCO_PARAMS)
+
+# Получение кадров из MJPEG-потока
+def get_latest_frame(url):
+    stream = requests.get(url, stream=True)
+    bytes_data = b''
+    for chunk in stream.iter_content(chunk_size=1024):
+        bytes_data += chunk
+        a = bytes_data.find(b'\xff\xd8')  # Start of JPEG
+        b = bytes_data.find(b'\xff\xd9')  # End of JPEG
+
+        while a != -1 and b != -1 and b > a:
+            jpg = bytes_data[a:b+2]
+            bytes_data = bytes_data[b+2:]
+            frame = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+            yield frame
+            a = bytes_data.find(b'\xff\xd8')
+            b = bytes_data.find(b'\xff\xd9')
+
 if __name__ == '__main__':
     stream_url = 'http://192.168.2.59:8080/stream?topic=/main_camera/image_raw'  # замените на свой
 
@@ -22,8 +49,7 @@ if __name__ == '__main__':
 
         gray = cv2.cvtColor(warped_frame, cv2.COLOR_BGR2GRAY)
 
-        detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
-        corners, ids, _ = detector.detectMarkers(gray)
+        corners, ids, _ = DETECTOR.detectMarkers(gray)
 
         if ids is not None:
             cv2.aruco.drawDetectedMarkers(warped_frame, corners, ids)
