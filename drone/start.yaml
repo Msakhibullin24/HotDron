@@ -7,6 +7,9 @@
     drone_script: drone.py
     land_script: land.py
     lib_script: lib.py
+    # ROS setup paths - adjust these based on your ROS installation
+    ros_setup_script: /opt/ros/noetic/setup.bash  # Change to your ROS version
+    catkin_ws_setup: "{{ home_dir }}/catkin_ws/devel/setup.bash"  # Change if different
 
   tasks:
     # Copy all scripts to all robots
@@ -27,13 +30,59 @@
       delegate_to: localhost
       run_once: true
 
-    # Launch drone.py on all robots
+    # Launch drone.py on all robots with ROS environment
     - name: Start drone program
       ansible.builtin.shell: |
-        nohup python3 {{ home_dir }}/{{ drone_script }} > {{ home_dir }}/drone.log 2>&1 &
+        cd {{ home_dir }}
+        
+        # Create a wrapper script that sources ROS environment
+        cat > {{ home_dir }}/start_drone.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Source ROS environment
+        if [ -f "{{ ros_setup_script }}" ]; then
+          source {{ ros_setup_script }}
+          echo "Sourced ROS setup"
+        else
+          echo "ROS setup script not found: {{ ros_setup_script }}"
+          exit 1
+        fi
+        
+        # Source catkin workspace if available
+        if [ -f "{{ catkin_ws_setup }}" ]; then
+          source {{ catkin_ws_setup }}
+          echo "Sourced catkin workspace"
+        fi
+        
+        # Start the drone script
+        cd {{ home_dir }}
+        exec python3 {{ home_dir }}/{{ drone_script }}
+        EOF
+        
+        chmod +x {{ home_dir }}/start_drone.sh
+        
+        # Run the wrapper script in background
+        nohup {{ home_dir }}/start_drone.sh > {{ home_dir }}/drone.log 2>&1 &
         echo $! > {{ home_dir }}/drone.pid
+        sleep 3
+        
+        # Verify the process is running
+        if kill -0 $(cat {{ home_dir }}/drone.pid) 2>/dev/null; then
+          echo "Drone process started successfully with PID $(cat {{ home_dir }}/drone.pid)"
+        else
+          echo "Failed to start drone process"
+          echo "Log contents:"
+          cat {{ home_dir }}/drone.log 2>/dev/null || echo "No log file found"
+          exit 1
+        fi
       args:
         executable: /bin/bash
+      register: drone_start_result
+
+    - name: Display drone startup status
+      ansible.builtin.debug:
+        var: drone_start_result.stdout_lines
 
     # Wait for second button press
     - name: Wait for termination command
@@ -46,13 +95,41 @@
     - name: Stop drone program
       ansible.builtin.shell: |
         if [ -f {{ home_dir }}/drone.pid ]; then
-          kill $(cat {{ home_dir }}/drone.pid) 2>/dev/null || true
+          PID=$(cat {{ home_dir }}/drone.pid)
+          if kill -0 $PID 2>/dev/null; then
+            echo "Stopping drone process $PID"
+            kill $PID 2>/dev/null || true
+            sleep 2
+            # Force kill if still running
+            if kill -0 $PID 2>/dev/null; then
+              kill -9 $PID 2>/dev/null || true
+            fi
+          fi
           rm -f {{ home_dir }}/drone.pid
         fi
       ignore_errors: true
 
     - name: Execute landing sequence
-      ansible.builtin.shell: python3 {{ home_dir }}/{{ land_script }}
+      ansible.builtin.shell: |
+        cd {{ home_dir }}
+        
+        # Source ROS environment before running land script
+        if [ -f "{{ ros_setup_script }}" ]; then
+          source {{ ros_setup_script }}
+        else
+          echo "ROS setup script not found: {{ ros_setup_script }}"
+          exit 1
+        fi
+        
+        # Source catkin workspace if available
+        if [ -f "{{ catkin_ws_setup }}" ]; then
+          source {{ catkin_ws_setup }}
+        fi
+        
+        # Run the landing script
+        python3 {{ home_dir }}/{{ land_script }}
+      args:
+        executable: /bin/bash
       async: 300  # 5 minutes timeout
       poll: 0     # Fire and forget
       register: landing_jobs
@@ -65,3 +142,8 @@
       retries: 60  # Check for 5 minutes (60 * 5 seconds)
       delay: 5     # Check every 5 seconds
       when: landing_jobs.ansible_job_id is defined
+
+    - name: Display landing results
+      ansible.builtin.debug:
+        var: landing_result
+      when: landing_result is defined

@@ -8,8 +8,8 @@ from pydantic import BaseModel
 
 from .helpers import *
 from .constants import *
-from .positions import get_positions
-from .game_state import GameState, init_game_state
+from .positions import *
+from .game_state import GameState, init_game_state, set_sheep_pos
 
 app = FastAPI()
 
@@ -42,8 +42,7 @@ async def get_game_state():
 
 @app.get("/positions")
 async def read_positions():
-    # URL видеопотока, можно вынести в конфигурацию
-    positions = get_positions(stream_url)
+    positions = get_positions()
     if "error" in positions:
         return ({
             "drone": None, 
@@ -57,6 +56,11 @@ async def read_positions():
 async def start_game():
     if(game_state_api["status"] != 'active'):
         game_state_api["status"] = 'active'
+
+        #получение актуальной позиции овцы и обновление состояния
+        new_sheep_pos = get_sheep_position()
+        sheep_cell = get_cell_from_coords(new_sheep_pos)
+        game_state_api = set_sheep_pos(game_state_api, sheep_cell)
 
         move_result = await game_state_api["moveGenerator"].get_next_move(game_state_api["state"].board)
         new_board_state = move_result["new_board"]
@@ -92,6 +96,13 @@ async def stop_game():
     })
     return transform_game_state(game_state_api)
 
+@app.get("/circle-sheep")
+async def circle_sheep():
+    new_sheep_pos = get_sheep_position()
+    print(f'pos {new_sheep_pos}')
+    sheep_cell = get_cell_from_coords(new_sheep_pos)
+    print(f'cell {sheep_cell}')
+    return get_block_sheep_positions(sheep_cell)
 
 async def emulate_sheep():
     if game_state_api["status"] != 'active':

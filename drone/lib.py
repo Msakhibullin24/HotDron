@@ -2,6 +2,7 @@ import math
 import logging
 import sys
 import time
+import threading
 
 import rospy
 from clover import srv
@@ -23,6 +24,10 @@ class HotDrone:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(handler)
+        
+        # Threading control for async publisher
+        self.publisher_thread = None
+        self.stop_publisher = threading.Event()
 
     def navigate_wait(
         self,
@@ -56,9 +61,11 @@ class HotDrone:
         self.set_led(effect='blink', r=255, g=255, b=255)
 
         self.force_arm(True)
-        self.navigate_wait(z=z, speed=0.5, frame_id="aruco", auto_arm=True)
+        self.send_fake_pos_async(duration=3.0)  # Start async publisher
+        self.wait(2)
+        self.navigate_wait(z=z, speed=0.5, frame_id="body", auto_arm=True)
 
-        telem = self.get_telemetry(frame_id="ned")
+        telem = self.get_telemetry(frame_id="body")
         if not telem.armed:
             raise RuntimeError("Arming failed!")
         self.set_led(effect='blink', r=255, g=165, b=0)
@@ -68,6 +75,7 @@ class HotDrone:
 
         self.logger.info("Takeoff done")
         self.set_led(r=0, g=255, b=0)
+        self.stop_fake_pos_async()  # Stop async publisher
 
     def land(self, z=0.5, delay: float = 4.0, frame_id="aruco_map") -> None:
         telem = self.get_telemetry(frame_id=frame_id)
@@ -77,7 +85,8 @@ class HotDrone:
         self.wait(1.0)
         self.logger.info("Landing")
         self.set_led(effect='blink', r=255, g=165, b=0)
-        self.autoland()
+        self.wait(1.0)
+        self.force_arm(False)
         self.wait(delay)
         self.logger.info("Landed")
         self.set_led(r=0, g=255, b=0)
@@ -90,33 +99,77 @@ class HotDrone:
     def run(self) -> None:
         z = 1.1
 
-        while True:
-            telem = self.get_telemetry(frame_id="body")
-            self.logger.info(telem)
-            self.wait(0.5)
+        self.takeoff(z=z, delay=0.5)
+        # while True:
+        #     telem = self.get_telemetry(frame_id="body")
+        #     self.logger.info(telem)
+        #     self.wait(0.5)
 
-    def send_fake_pos(self):
+        self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_81", tolerance=0.2)
+        # self.navigate_wait(x=0.5625, y=0.5625, z=z, speed=0.5, frame_id="aruco_map", tolerance=0.2)
+        self.wait(2)
+
+        self.land()
+
+    def _fake_pos_publisher(self, duration=5.0):
+        """Internal method to run the fake position publisher"""
+        self.logger.info(f"Started vision pose publishing for {duration}s")
         pub = rospy.Publisher('/mavros/vision_pose/pose', PoseStamped, queue_size=1)
+        
+        rate = rospy.Rate(50)  # 50Hz publishing rate
+        start_time = time.time()
+        initial_z = -1.3941157568261844
+        target_z = initial_z + 20.0  # Move up 20 meters over duration
+        
+        while (time.time() - start_time < duration and 
+               not rospy.is_shutdown() and 
+               not self.stop_publisher.is_set()):
+            
+            elapsed = time.time() - start_time
+            progress = elapsed / duration  # 0 to 1
+            current_z = initial_z + (target_z - initial_z) * progress
+            
+            msg = PoseStamped()
+            msg.header.stamp = rospy.Time.now()
+            msg.header.frame_id = "body"
+            msg.pose.position.x = -0.9737948572061019
+            msg.pose.position.y = 1.3070810124006333
+            msg.pose.position.z = -current_z  # Gradually increasing z
+            msg.pose.orientation.x = -0.007933059759995434
+            msg.pose.orientation.y = -0.009343381468109018
+            msg.pose.orientation.z = -0.6053151200902469
+            msg.pose.orientation.w = 0.7958915586785147
+            pub.publish(msg)
+            rate.sleep()
+        
+        self.logger.info("Stopped vision pose publishing")
 
-        msg = PoseStamped()
-        msg.header.stamp = rospy.Time.now()
-        msg.header.frame_id = "map"
-        msg.pose.position.x = -0.9737948572061019
-        msg.pose.position.y = 1.3070810124006333
-        msg.pose.position.z = -1.3941157568261844
-        msg.pose.orientation.x = -0.007933059759995434
-        msg.pose.orientation.y = -0.009343381468109018
-        msg.pose.orientation.z = -0.6053151200902469
-        msg.pose.orientation.w = 0.7958915586785147
-        pub.publish(msg)
-        return pub
+    def send_fake_pos_async(self, duration=5.0):
+        """Start fake position publisher in a separate thread"""
+        if self.publisher_thread is not None and self.publisher_thread.is_alive():
+            self.logger.warning("Publisher thread already running")
+            return
+        
+        self.stop_publisher.clear()
+        self.publisher_thread = threading.Thread(
+            target=self._fake_pos_publisher, 
+            args=(duration,),
+            daemon=True
+        )
+        self.publisher_thread.start()
+        self.logger.info("Started async fake position publisher")
 
-    def run(self) -> None:
-        time.sleep(5)
-        print("555")
-        pass
+    def stop_fake_pos_async(self):
+        """Stop the async fake position publisher"""
+        if self.publisher_thread is not None and self.publisher_thread.is_alive():
+            self.stop_publisher.set()
+            self.publisher_thread.join(timeout=1.0)  # Wait up to 1 second for thread to finish
+            self.logger.info("Stopped async fake position publisher")
+
+    def send_fake_pos(self, duration=5.0):
+        """Send fake position data with gradual upward movement (synchronous version)"""
+        self._fake_pos_publisher(duration)
 
     def emergency_land(self) -> None:
-        time.sleep(5)
-        print("666")
-        pass
+        self.stop_fake_pos_async()  # Stop any running publisher
+        self.land()
