@@ -124,10 +124,7 @@ async def read_positions():
     stream_url = 'http://192.168.2.59:8080/stream?topic=/main_camera/image_raw'
     positions = get_positions(stream_url)
     if "error" in positions:
-        "drone": None, 
-        "to": None,
-        "sheepPos": None,
-    })
+        print(f"Error getting positions: {positions}")
     return transform_game_state(game_state_api)
 
 @app.get("/start", response_model=GameStateResponse)
