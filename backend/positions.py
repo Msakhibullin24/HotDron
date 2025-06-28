@@ -27,10 +27,11 @@ aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
 aruco_params = cv2.aruco.DetectorParameters()
 
 
+
 def to_algebraic(pos):
     """Converts (row, col) to algebraic notation like 'A1'."""
     r, c = pos
-    return f"{chr(ord('a') + c)}{8 - r}"
+    return f"{chr(ord('A') + c)}{8 - r}"
 
 def from_algebraic(cell_str):
     """Converts algebraic notation like 'A1' to (row, col)."""
@@ -129,7 +130,6 @@ def get_sheep_position():
     return all_positions.get(SHEEP_ID)
 
 def get_cell_from_coords(coords):
-    print(f'{coords}')
     """
     Finds the closest cell in the aruco_map.json file to the given coordinates.
     """
@@ -178,7 +178,6 @@ def get_block_sheep_positions(sheep_cell: str):
         return []
 
     r, c = current_pos
-    print(f'r{r} c{c}')
     neighboring_cells = []
     
     # Define the four diagonal directions for blocking
@@ -192,4 +191,10 @@ def get_block_sheep_positions(sheep_cell: str):
                 neighboring_cells.append(cell_map[neighbor_cell_alg])
                 
     # Return only the coordinates
-    return [[cell['x'], cell['y'], cell['z']] for cell in neighboring_cells]
+    return [
+        {
+            "cell": cell['cell'].lower(), 
+            "coords": [cell['x'], cell['y'], cell['z']]
+        } 
+        for cell in neighboring_cells
+    ]
