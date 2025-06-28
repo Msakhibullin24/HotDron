@@ -23,6 +23,8 @@ class HotDrone:
         self.force_arm = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 
         self.drone_names = ['drone5', 'drone10', 'drone8', 'drone11']
+        self.initial_z = 0
+
         self.drone_name = os.environ.get('DRONE_NAME', 'unknown_drone')
         print(f"Running on drone: {self.drone_name}")
         
@@ -118,7 +120,12 @@ class HotDrone:
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
         if self.drone_name == "drone5":
-            self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_39", tolerance=0.2)
+            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
+            telem = self.get_telemetry(frame_id="aruco_map")
+            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
+            self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.1)
+            telem = self.get_telemetry(frame_id="aruco_map")
+            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
         elif self.drone_name == "drone10":
             self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_81", tolerance=0.2)
         elif self.drone_name == "drone8":
@@ -140,12 +147,15 @@ class HotDrone:
         self.land(frame_id="aruco_86")
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
+        self.wait(5)
         ''''''
         for i in ["aruco_136", "aruco_97", "aruco_81", "aruco_104", "aruco_132"]:
             self.wait(1)
             self.set_mode_service(custom_mode="AUTO.LAND")
             self.wait(1)
-            self.set_mode_service(custom_mode="STABILIZED")
+            while self.get_telemetry(frame_id="body").mode != "STABILIZED":
+                self.set_mode_service(custom_mode="STABILIZED")
+                self.wait(3)
             self.wait(1)
             self.force_arm(True)
             self.wait(1)
@@ -153,7 +163,7 @@ class HotDrone:
             self.wait(2)
             telem = self.get_telemetry(frame_id="aruco_map")
             self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=1.5)
+            self.takeoff(z=1.5, delay=0.5, time_spam=4, time_warm=2, time_up=2)
             self.wait(2)
             self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id=i, tolerance=0.1)
             self.wait(2)
@@ -167,16 +177,17 @@ class HotDrone:
         
         rate = rospy.Rate(50)  # 50Hz publishing rate
         start_time = time.time()
-        initial_z = 0
-        target_z = initial_z + 20.0  # Move up 20 meters over duration
         
+        target_z = self.initial_z + 20.0  # Move up 20 meters over duration
+        current_z_temp = 0
         while (time.time() - start_time < duration and 
                not rospy.is_shutdown() and 
                not self.stop_publisher.is_set()):
             
             elapsed = time.time() - start_time
             progress = elapsed / duration  # 0 to 1
-            current_z = initial_z + (target_z - initial_z) * progress
+            current_z = self.initial_z + (target_z - self.initial_z) * progress
+            current_z_temp = current_z
             
             msg = PoseStamped()
             msg.header.stamp = rospy.Time.now()
@@ -192,6 +203,8 @@ class HotDrone:
             rate.sleep()
         
         self.logger.info("Stopped vision pose publishing")
+
+        self.initial_z = current_z_temp
 
     def send_fake_pos_async(self, duration=5.0):
         """Start fake position publisher in a separate thread"""
