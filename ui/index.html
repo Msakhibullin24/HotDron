@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone UI</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 20px; }
+        #controls { margin-bottom: 20px; }
+        button { font-size: 16px; padding: 10px 20px; margin: 0 10px; cursor: pointer; }
+        #info { border: 1px solid #ccc; padding: 20px; min-width: 400px; background-color: #f9f9f9; }
+        h2 { margin-top: 0; }
+        pre { background-color: #eee; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Drone Control UI</h1>
+
+    <div id="controls">
+        <button id="startButton">Start Game</button>
+        <button id="stopButton">Stop Game</button>
+    </div>
+
+    <div id="info">
+        <h2>Current Game State</h2>
+        <pre id="gameStateDisplay">Fetching state...</pre>
+    </div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const gameStateDisplay = document.getElementById('gameStateDisplay');
+
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // Function to fetch and display the current game state
+        async function fetchGameState() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/game-state`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                gameStateDisplay.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                console.error('Error fetching game state:', error);
+                gameStateDisplay.textContent = `Error fetching state: ${error.message}`;
+            }
+        }
+
+        // Event listeners for buttons
+        startButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/start`);
+                const data = await response.json();
+                gameStateDisplay.textContent = `Game started!\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                console.error('Error starting game:', error);
+                gameStateDisplay.textContent = `Error starting game: ${error.message}`;
+            }
+        });
+
+        stopButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stop`);
+                const data = await response.json();
+                gameStateDisplay.textContent = `Game stopped.\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                console.error('Error stopping game:', error);
+                gameStateDisplay.textContent = `Error stopping game: ${error.message}`;
+            }
+        });
+
+        // Fetch the game state every 2 seconds to keep it updated
+        setInterval(fetchGameState, 2000);
+
+        // Initial fetch on page load
+        fetchGameState();
+    </script>
+</body>
+</html>

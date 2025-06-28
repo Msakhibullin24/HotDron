@@ -1,0 +1,8 @@
+{
+	"folders": [
+		{
+			"name": "SSH FS - drone10",
+			"uri": "ssh://drone10/"
+		}
+	]
+}
