@@ -29,10 +29,13 @@ def print_board(board):
     print(" +-----------------+")
     print("  a b c d e f g h\n")
 
-def transform_game_state(gameStateRaw):
-    return {
-        "status": gameStateRaw["status"], 
-        "drone": gameStateRaw["drone"], 
+def transform_game_state(gameStateRaw, include_board=False):
+    response = {
+        "status": gameStateRaw["status"],
+        "drone": gameStateRaw["drone"],
         "to": gameStateRaw["to"],
         "sheepPos": gameStateRaw["sheepPos"]
     }
+    if include_board and gameStateRaw.get("state"):
+        response["board"] = gameStateRaw["state"].board
+    return response

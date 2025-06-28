@@ -6,50 +6,142 @@
     <title>Drone UI</title>
     <style>
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 20px; }
-        #controls { margin-bottom: 20px; }
+        #controls { margin-bottom: 20px; display: flex; gap: 10px; }
         button { font-size: 16px; padding: 10px 20px; margin: 0 10px; cursor: pointer; }
         #info { border: 1px solid #ccc; padding: 20px; min-width: 400px; background-color: #f9f9f9; }
         h2 { margin-top: 0; }
-        pre { background-color: #eee; padding: 10px; border-radius: 5px; }
+        .caption { color: rgb(104, 104, 104); font-size: 12px; }
+        #board-container { margin-top: 20px; }
+        .board { display: grid; grid-template-columns: repeat(8, 50px); grid-template-rows: repeat(8, 50px); border: 2px solid #333; }
+        .cell { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; font-size: 24px; }
+        .cell.dark { background-color: #769656; }
+        .cell.light { background-color: #eeeed2; }
+        .piece { font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>Drone Control UI</h1>
 
-    <div id="controls">
-        <button id="startButton">Start Game</button>
-        <button id="stopButton">Stop Game</button>
-    </div>
-
     <div id="info">
         <h2>Current Game State</h2>
-        <pre id="gameStateDisplay">Fetching state...</pre>
+        <p class="caption">Ход: <span id="turn">0</span></p>
+        <div id="gameStateDisplay">Fetching state...</div>
+
+        <pre id="debug">
+
+        </pre>
+
+        <div id="controls">
+            <button id="startButton">Сделать ход</button>
+            <button id="stopButton">Остановка хода</button>
+            <button id="resetButton">Остановить игру</button>
+        </div>
+        <div>
+            <input type="checkbox" id="showBoardCheckbox">
+            <label for="showBoardCheckbox">Show Board</label>
+            <input type="checkbox" id="showDebugCheckbox">
+            <label for="showDebugCheckbox">Show Debug</label>
+        </div>
     </div>
 
+    <div id="board-container"></div>
+
     <script>
+        let turn = 0;
+        const turnSpan = document.getElementById('turn');
+        const debug = document.getElementById('debug')
+
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
+        const resetButton = document.getElementById('resetButton');
         const gameStateDisplay = document.getElementById('gameStateDisplay');
+        const boardContainer = document.getElementById('board-container');
+        const showBoardCheckbox = document.getElementById('showBoardCheckbox');
+        const showDebugCheckbox = document.getElementById('showDebugCheckbox');
+
 
         const API_BASE_URL = 'http://localhost:8000';
 
-        // Function to fetch and display the current game state
+        function updateTurn() {
+            turnSpan.innerHTML = turn;
+        }
+
+        function updateDebug(data) {
+            debug.innerHTML = data
+        }
+
+        function renderBoard(boardData) {
+            boardContainer.innerHTML = '';
+            const boardElement = document.createElement('div');
+            boardElement.className = 'board';
+            
+            boardData.forEach((row, r_idx) => {
+                row.forEach((cell, c_idx) => {
+                    const cellElement = document.createElement('div');
+                    cellElement.className = 'cell';
+                    if ((r_idx + c_idx) % 2 === 0) {
+                        cellElement.classList.add('light');
+                    } else {
+                        cellElement.classList.add('dark');
+                    }
+
+                    if (cell !== 0) {
+                        const piece = document.createElement('span');
+                        piece.className = 'piece';
+                        piece.textContent = cell === -1 ? 'S' : 'W';
+                        cellElement.appendChild(piece);
+                    }
+                    boardElement.appendChild(cellElement);
+                });
+            });
+            boardContainer.appendChild(boardElement);
+        }
+
+        function updateGameStateDisplay(data) {
+            let displayText = `Status: ${data.status}\n`;
+            if (data.drone) displayText += `Drone to move: ${data.drone}\n`;
+            if (data.to) displayText += `Destination: ${data.to}\n`;
+            if (data.sheepPos) displayText += `Sheep Position: ${data.sheepPos}\n`;
+            gameStateDisplay.textContent = displayText;
+        }
+
         async function fetchGameState() {
             try {
-                const response = await fetch(`${API_BASE_URL}/game-state`);
+                const showBoard = showBoardCheckbox.checked;
+                const SHOW_DEBUG = showDebugCheckbox.checked;
+                const response = await fetch(`${API_BASE_URL}/game-state?board=${showBoard}`);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
                     throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                gameStateDisplay.textContent = JSON.stringify(data, null, 2);
+                updateGameStateDisplay(data);
+
+                if (data.board) {
+                    renderBoard(data.board);
+                } else {
+                    boardContainer.innerHTML = '';
+                }
+
+                const debugData = {...data}
+                delete debugData.board
+                if(SHOW_DEBUG) updateDebug(JSON.stringify(debugData, undefined, 4))
+
+                if (data.status === 'active') {
+                    stopButton.style.display = 'block';
+                    startButton.style.display = 'none';
+                } else {
+                    stopButton.style.display = 'none';
+                    startButton.style.display = 'block';
+                }
             } catch (error) {
                 console.error('Error fetching game state:', error);
                 gameStateDisplay.textContent = `Error fetching state: ${error.message}`;
+                startButton.style.display = 'block';
+                stopButton.style.display = 'none';
             }
         }
 
-        // Event listeners for buttons
         startButton.addEventListener('click', async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/start`);
@@ -58,10 +150,13 @@
                     throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                gameStateDisplay.textContent = `Game started!\n\n${JSON.stringify(data, null, 2)}`;
+                updateGameStateDisplay(data);
+                stopButton.style.display = 'block';
+                startButton.style.display = 'none';
+                turn++;
+                updateTurn();
             } catch (error) {
                 console.error('Error starting game:', error);
-                // gameStateDisplay.textContent = `Error starting game: ${error.message}`;
                 alert(`Error starting game: ${error.message}`);
             }
         });
@@ -69,23 +164,45 @@
         stopButton.addEventListener('click', async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/stop`);
-                 if (!response.ok) {
+                if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
                     throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                gameStateDisplay.textContent = `Game stopped.\n\n${JSON.stringify(data, null, 2)}`;
+                updateGameStateDisplay(data);
+                stopButton.style.display = 'none';
+                startButton.style.display = 'block';
             } catch (error) {
                 console.error('Error stopping game:', error);
-                gameStateDisplay.textContent = `Error stopping game: ${error.message}`;
                 alert(`Error stopping game: ${error.message}`);
             }
         });
 
-        // Fetch the game state every 2 seconds to keep it updated
-        setInterval(fetchGameState, 2000);
+        resetButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/reset`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                updateGameStateDisplay(data);
+                turn = 0;
+                updateTurn();
+                setTimeout(fetchGameState, 1000);
+            } catch (error) {
+                console.error('Error resetting game:', error);
+                alert(`Error resetting game: ${error.message}`);
+            }
+        });
 
-        // Initial fetch on page load
+        showBoardCheckbox.addEventListener('change', fetchGameState);
+
+        showDebugCheckbox.addEventListener('change', () => {
+
+        })
+
+        setInterval(fetchGameState, 2000);
         fetchGameState();
     </script>
 </body>

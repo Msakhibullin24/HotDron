@@ -46,15 +46,30 @@ game_state_api = {
     "sheepPos": None,
 }
 
+def set_default_game_state_api():
+    global game_state_api
+    game_state_api = init_game_state({ 
+        "status": "stop", 
+        "drone": None, 
+        "to": None,
+        "moveGenerator": None,
+        "state": None,
+        "sheepPos": None,
+    })
+
+set_default_game_state_api()
+
+
 class GameStateResponse(BaseModel):
     status: str
     drone: int | None = None
     to: list[float] | str | None = None
     sheepPos: str | None = None
+    board: list[list[int]] | None = None
 
 @app.get("/game-state", response_model=GameStateResponse)
-async def get_game_state():
-    return transform_game_state(game_state_api)
+async def get_game_state(board: bool = False):
+    return transform_game_state(game_state_api, include_board=board)
 
 @app.get("/positions")
 async def read_positions():
@@ -140,6 +155,11 @@ async def circle_sheep():
         
     print(f'cell {sheep_cell}')
     return get_block_sheep_positions(sheep_cell)
+
+@app.get("/reset")
+async def reset_game():
+    set_default_game_state_api()
+    return transform_game_state(game_state_api)
 
 async def emulate_sheep():
     if game_state_api["status"] != 'active':
