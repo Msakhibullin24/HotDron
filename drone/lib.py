@@ -22,6 +22,7 @@ class HotDrone:
 
         self.force_arm = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 
+        self.drone_names = ['drone5', 'drone10', 'drone8', 'drone11']
         self.drone_name = os.environ.get('DRONE_NAME', 'unknown_drone')
         print(f"Running on drone: {self.drone_name}")
         
