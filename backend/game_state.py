@@ -3,7 +3,7 @@ from .constants import *
 
 from .alg import AlgorithmicMoveGenerator
 from .gemini import GeminiMoveGenerator
-from .positions import get_sheep_position, from_algebraic
+from .positions import get_sheep_position, from_algebraic, get_drone_positions, get_cell_from_coords
 
 class GameState:
     def __init__(self, wolf_positions_alg, sheep_position_alg):
@@ -67,12 +67,23 @@ class GameState:
 
 def init_game_state(game_state_api):
     mode = 'alg'
-    sheep_pos = get_sheep_position()
-    sheep_cell = from_algebraic(sheep_pos) or INITIAL_SHEEP_POSITION
+    sheep_pos_coords = get_sheep_position()
+    sheep_cell = get_cell_from_coords(sheep_pos_coords) or INITIAL_SHEEP_POSITION
 
-    game_state_api["state"] = GameState(INITIAL_DRONE_POSITIONS, sheep_cell)
+    drone_pos_coords = get_drone_positions()
     
-    initial_drone_positions_alg = {}
+    transformed_drone_pos = {}
+    if drone_pos_coords:
+        for drone_id, coords in drone_pos_coords.items():
+            cell = get_cell_from_coords(coords)
+            if cell:
+                transformed_drone_pos[drone_id] = cell
+    
+    final_drone_positions = transformed_drone_pos if transformed_drone_pos else INITIAL_DRONE_POSITIONS
+
+    game_state_api["state"] = GameState(final_drone_positions, sheep_cell)
+    
+    initial_drone_positions_alg = final_drone_positions
     initial_sheep_position_alg = {}
     
     game_state_api["moveGenerator"] = GeminiMoveGenerator(
