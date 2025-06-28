@@ -76,7 +76,8 @@ def get_positions():
 
     # Параметры для коррекции перспективы (взяты из detector.py)
     pts1 = np.float32([[147, 59], [443, 33], [457, 338], [166, 347]])
-    width, height = 300, 350
+    
+    width, height = 600, 700
     pts2 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
     matrix = cv2.getPerspectiveTransform(pts1, pts2)
     
@@ -93,8 +94,14 @@ def get_positions():
             marker_corners = corners[i].reshape((4, 2))
             cX = int(np.mean(marker_corners[:, 0]))
             cY = int(np.mean(marker_corners[:, 1]))
+            coords = get_converted_coords(cX, cY)
+            cell = get_cell_from_coords(coords)
             
-            positions[marker_id] = get_converted_coords(cX, cY)
+            positions[marker_id] = {
+                "x": coords["x"],
+                "y": coords["y"],
+                "cell": cell,
+            }
             
     return positions
 

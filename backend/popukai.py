@@ -10,8 +10,8 @@ def convert_to_json_coords(pixel_x, pixel_y):
     # --- Параметры преобразования ---
     
     # Размеры выпрямленного изображения
-    WARPED_WIDTH = 300.0
-    WARPED_HEIGHT = 350.0
+    WARPED_WIDTH = 600.0
+    WARPED_HEIGHT = 700.0
     
     # РАССЧИТАННЫЕ ОТСТУПЫ (в пикселях)
     # Это расстояние от края изображения до края игрового поля
@@ -45,8 +45,8 @@ def convert_to_json_coords(pixel_x, pixel_y):
 
     # 2. Масштабируем нормализованную координату до мировых размеров
     #    Здесь мы снова учитываем инверсию оси Y
-    world_x = -(norm_x * (WORLD_X_MAX - WORLD_X_MIN) + WORLD_X_MIN)
-    world_y = -((1.0 - norm_y) * (WORLD_Y_MAX - WORLD_Y_MIN) + WORLD_Y_MIN)
+    world_x = -(norm_x * (WORLD_X_MAX - WORLD_X_MIN) + WORLD_X_MIN) + 0.15
+    world_y = -((1.0 - norm_y) * (WORLD_Y_MAX - WORLD_Y_MIN) + WORLD_Y_MIN) + 0.18
     
     return {
         "x": round(world_x, 4),
