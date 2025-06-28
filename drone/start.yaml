@@ -40,6 +40,10 @@
         #!/bin/bash
         set -e
         
+        # Set drone name environment variable
+        export DRONE_NAME="{{ inventory_hostname }}"
+        echo "Setting DRONE_NAME to: $DRONE_NAME"
+        
         # Source ROS environment
         if [ -f "{{ ros_setup_script }}" ]; then
           source {{ ros_setup_script }}
@@ -55,7 +59,7 @@
           echo "Sourced catkin workspace"
         fi
         
-        # Start the drone script
+        # Start the drone script with environment variable
         cd {{ home_dir }}
         exec python3 {{ home_dir }}/{{ drone_script }}
         EOF
@@ -113,6 +117,10 @@
       ansible.builtin.shell: |
         cd {{ home_dir }}
         
+        # Set drone name environment variable
+        export DRONE_NAME="{{ inventory_hostname }}"
+        echo "Setting DRONE_NAME to: $DRONE_NAME for landing sequence"
+        
         # Source ROS environment before running land script
         if [ -f "{{ ros_setup_script }}" ]; then
           source {{ ros_setup_script }}
@@ -126,7 +134,7 @@
           source {{ catkin_ws_setup }}
         fi
         
-        # Run the landing script
+        # Run the landing script with environment variable
         python3 {{ home_dir }}/{{ land_script }}
       args:
         executable: /bin/bash
