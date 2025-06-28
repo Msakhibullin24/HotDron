@@ -30,7 +30,7 @@
     # Launch drone.py on all robots
     - name: Start drone program
       ansible.builtin.shell: |
-        nohup python3 {{ home_dir }}/{{ drone_script }} > {{ home_dir }}/drone.log 2>&1 &
+        python3 {{ home_dir }}/{{ drone_script }} > {{ home_dir }}/drone.log &
         echo $! > {{ home_dir }}/drone.pid
       args:
         executable: /bin/bash
