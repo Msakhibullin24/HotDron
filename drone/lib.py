@@ -17,51 +17,145 @@ class DroneCoords:
     def __str__(self):
         return f"DroneCoords(x={self.x}, y={self.y}, z={self.z})"
 
-def get_drone_coords(drone_name) -> DroneCoords:
-    """
-    Get coordinates for a specific drone name from the circle-sheep API endpoint.
+class GameAPI:
+    """API client for the sheep-wolf game"""
+    def __init__(self, api_url='http://192.168.2.95:8000'):
+        self.api_url = api_url
     
-    Args:
-        drone_name (str): Single drone name to get coordinates for
-        
-    Returns:
-        DroneCoords: Object with x, y, z attributes
+    def get_game_state(self):
+        """Get current game state"""
+        try:
+            response = requests.get(f"{self.api_url}/game-state")
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error getting game state: {e}")
+            return None
+    
+    def start_game(self):
+        """Start the game"""
+        try:
+            response = requests.get(f"{self.api_url}/start")
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error starting game: {e}")
+            return None
+    
+    def stop_game(self):
+        """Stop the game"""
+        try:
+            response = requests.get(f"{self.api_url}/stop")
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error stopping game: {e}")
+            return None
+
+def wait_for_game_start(drone_name, game_api=None, check_interval=2.0):
+    """Wait until game starts - blocking function"""
+    if game_api is None:
+        game_api = GameAPI()
+    
+    print(f"{drone_name} waiting for game to start...")
+    while not rospy.is_shutdown():
+        game_state = game_api.get_game_state()
+        if game_state and game_state.get('status') == 'active':
+            print(f"{drone_name}: Game started!")
+            return True
+        print(f"{drone_name}: Game status: {game_state.get('status') if game_state else 'unknown'}. Waiting...")
+        time.sleep(check_interval)
+    return False
+
+def wait_for_drone_move(drone_name, game_api=None, check_interval=1.0):
     """
-    api_url = 'http://192.168.2.95:8000'
+    Wait for this drone's turn and return coordinates - BLOCKING function
+    Only returns when it's actually time for this drone to move
+    """
+    if game_api is None:
+        game_api = GameAPI()
     
     try:
-        response = requests.get(f"{api_url}/circle-sheep")
-        response.raise_for_status()
+        drone_number = int(drone_name.replace('drone', ''))
+    except ValueError:
+        print(f"Invalid drone name format: {drone_name}")
+        return None
+    
+    print(f"🤖 {drone_name} waiting for turn...")
+    
+    while not rospy.is_shutdown():
+        game_state = game_api.get_game_state()
         
-        positions = response.json()
+        if not game_state:
+            print(f"{drone_name}: Could not get game state, retrying...")
+            time.sleep(check_interval)
+            continue
         
-        if not isinstance(positions, list):
-            print("Error: Invalid response format from server.")
-            return DroneCoords()
+        # If game is not active, keep waiting
+        if game_state.get('status') != 'active':
+            print(f"{drone_name}: Game not active (status: {game_state.get('status')}), waiting...")
+            time.sleep(check_interval)
+            continue
         
-        # Search for the drone by name in the response
-        for pos in positions:
-            if pos.get('drone_name') == drone_name:
-                coords = pos.get('coords')
-                
-                if coords and len(coords) >= 3:
-                    x, y, z = coords[0], coords[1], coords[2]
-                    print(f"Got coordinates for {drone_name}: x={x}, y={y}, z={z}")
-                    return DroneCoords(x, y, z)
-                else:
-                    print(f"Warning: Invalid coordinates for {drone_name}")
-                    return DroneCoords()
+        # Check if it's this drone's turn
+        current_drone = game_state.get('drone')
+        if current_drone != drone_number:
+            # Not this drone's turn, keep waiting silently
+            time.sleep(check_interval)
+            continue
         
-        # If drone not found in response
-        print(f"Error: Drone '{drone_name}' not found in API response.")
-        return DroneCoords()
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error making request to /circle-sheep: {e}")
-        return DroneCoords()
-    except json.JSONDecodeError:
-        print("Error: Could not decode JSON response from server.")
-        return DroneCoords()
+        # It's this drone's turn! Get coordinates
+        target_coords = game_state.get('to')
+        if target_coords and isinstance(target_coords, list) and len(target_coords) >= 3:
+            x, y, z = target_coords[0], target_coords[1], target_coords[2]
+            print(f"🎯 {drone_name} turn! Moving to x={x:.3f}, y={y:.3f}, z={z:.3f}")
+            return DroneCoords(x, y, z)
+        else:
+            print(f"{drone_name}: Invalid coordinates: {target_coords}")
+            time.sleep(check_interval)
+            continue
+    
+    print(f"{drone_name}: ROS shutdown detected")
+    return None
+
+def trigger_next_move(game_api=None):
+    """
+    Trigger the next move in the game (this would call /start to continue the game)
+    """
+    if game_api is None:
+        game_api = GameAPI()
+    
+    result = game_api.start_game()
+    if result:
+        print("✅ Triggered next game move")
+        return True
+    else:
+        print("❌ Failed to trigger next move")
+        return False
+
+def get_current_drone_move(drone_name, game_api=None):
+    """
+    Non-blocking version - returns coordinates if it's drone's turn, None otherwise
+    """
+    if game_api is None:
+        game_api = GameAPI()
+    
+    try:
+        drone_number = int(drone_name.replace('drone', ''))
+    except ValueError:
+        return None
+    
+    game_state = game_api.get_game_state()
+    if (not game_state or 
+        game_state.get('status') != 'active' or 
+        game_state.get('drone') != drone_number):
+        return None
+    
+    target_coords = game_state.get('to')
+    if target_coords and isinstance(target_coords, list) and len(target_coords) >= 3:
+        return DroneCoords(target_coords[0], target_coords[1], target_coords[2])
+    
+    return None
 
 import rospy
 from clover import srv
