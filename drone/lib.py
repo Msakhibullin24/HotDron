@@ -4,6 +4,64 @@ import sys
 import time
 import threading
 import os
+import requests
+import json
+
+class DroneCoords:
+    """Object to hold drone coordinates with x, y, z attributes"""
+    def __init__(self, x=0.0, y=0.0, z=0.0):
+        self.x = x
+        self.y = y
+        self.z = z
+    
+    def __str__(self):
+        return f"DroneCoords(x={self.x}, y={self.y}, z={self.z})"
+
+def get_drone_coords(drone_name) -> DroneCoords:
+    """
+    Get coordinates for a specific drone name from the circle-sheep API endpoint.
+    
+    Args:
+        drone_name (str): Single drone name to get coordinates for
+        
+    Returns:
+        DroneCoords: Object with x, y, z attributes
+    """
+    api_url = 'http://192.168.2.95:8000'
+    
+    try:
+        response = requests.get(f"{api_url}/circle-sheep")
+        response.raise_for_status()
+        
+        positions = response.json()
+        
+        if not isinstance(positions, list):
+            print("Error: Invalid response format from server.")
+            return DroneCoords()
+        
+        # Search for the drone by name in the response
+        for pos in positions:
+            if pos.get('drone_name') == drone_name:
+                coords = pos.get('coords')
+                
+                if coords and len(coords) >= 3:
+                    x, y, z = coords[0], coords[1], coords[2]
+                    print(f"Got coordinates for {drone_name}: x={x}, y={y}, z={z}")
+                    return DroneCoords(x, y, z)
+                else:
+                    print(f"Warning: Invalid coordinates for {drone_name}")
+                    return DroneCoords()
+        
+        # If drone not found in response
+        print(f"Error: Drone '{drone_name}' not found in API response.")
+        return DroneCoords()
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error making request to /circle-sheep: {e}")
+        return DroneCoords()
+    except json.JSONDecodeError:
+        print("Error: Could not decode JSON response from server.")
+        return DroneCoords()
 
 import rospy
 from clover import srv
@@ -22,7 +80,6 @@ class HotDrone:
 
         self.force_arm = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 
-        self.drone_names = ['drone5', 'drone10', 'drone8', 'drone11']
         self.initial_z = 0
 
         self.drone_name = os.environ.get('DRONE_NAME', 'unknown_drone')
@@ -85,7 +142,7 @@ class HotDrone:
         self.set_led(r=0, g=255, b=0)
         self.stop_fake_pos_async()  # Stop async publisher
 
-    def land(self, z=0.4, delay: float = 4.0, frame_id="aruco_map") -> None:
+    def land(self, z=0.5, delay: float = 4.0, frame_id="aruco_map") -> None:
         telem = self.get_telemetry(frame_id=frame_id)
         self.logger.info("Pre-landing")
         self.set_led(effect='blink', r=255, g=255, b=255)
@@ -102,8 +159,13 @@ class HotDrone:
         self.logger.info("Landed")
         self.set_mode_service(custom_mode="AUTO.LAND")
         self.wait(0.2)
-        self.set_mode_service(custom_mode="STABILIZED")
+        while self.get_telemetry(frame_id="body").mode != "STABILIZED":
+            self.set_mode_service(custom_mode="STABILIZED")
+            self.wait(3)
         self.wait(1)
+        self.force_arm(True)
+        self.wait(1)
+        self.force_arm(False)
         self.set_led(r=0, g=255, b=0)
 
     def wait(self, duration: float):
@@ -120,56 +182,33 @@ class HotDrone:
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
         if self.drone_name == "drone5":
-            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
-            telem = self.get_telemetry(frame_id="aruco_map")
-            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-            self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.1)
-            telem = self.get_telemetry(frame_id="aruco_map")
-            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
+            self.takeoff(z=1.5, delay=0.5, time_spam=3.5, time_warm=2, time_up=1.5)
         elif self.drone_name == "drone10":
-            self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_81", tolerance=0.2)
+            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
         elif self.drone_name == "drone8":
-            self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_33", tolerance=0.2)
-        elif self.drone_name == "drone11":
-            self.takeoff(z=1.5, delay=0.5, time_spam=2.5, time_warm=2, time_up=0.3)
-            telem = self.get_telemetry(frame_id="aruco_map")
-            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-            self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.1)
-            telem = self.get_telemetry(frame_id="aruco_map")
-            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
+            self.takeoff(z=1.5, delay=0.5, time_spam=3.5, time_warm=2, time_up=1.5)
+        elif self.drone_name == "drone12":
+            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
         else:
             # Default fallback if drone name not recognized
             self.logger.warning(f"Unknown drone name: {self.drone_name}, using default aruco_81")
             self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_81", tolerance=0.2)
         # self.navigate_wait(x=0.5625, y=0.5625, z=z, speed=0.5, frame_id="aruco_map", tolerance=0.2)
         self.wait(2)
-
-        self.land(frame_id="aruco_86")
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-        self.wait(5)
         ''''''
-        for i in ["aruco_136", "aruco_97", "aruco_81", "aruco_104", "aruco_132"]:
-            self.wait(1)
-            self.set_mode_service(custom_mode="AUTO.LAND")
-            self.wait(1)
-            while self.get_telemetry(frame_id="body").mode != "STABILIZED":
-                self.set_mode_service(custom_mode="STABILIZED")
-                self.wait(3)
-            self.wait(1)
-            self.force_arm(True)
-            self.wait(1)
-            self.force_arm(False)
-            self.wait(2)
-            telem = self.get_telemetry(frame_id="aruco_map")
-            self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-            self.takeoff(z=1.5, delay=0.5, time_spam=4, time_warm=2, time_up=2)
-            self.wait(2)
-            self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id=i, tolerance=0.1)
-            self.wait(2)
-            self.land(frame_id=i)
-        ''''''
+        self.wait(2)
+        telem = self.get_telemetry(frame_id="aruco_map")
+        self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
+        self.wait(2)
+        cords = get_drone_coords(drone_name=self.drone_name)
+        self.wait(2)
+        self.navigate_wait(x=cords.x, y=cords.y, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_map", tolerance=0.1)
+        self.wait(2)
         self.land()
+        ''''''
+        # self.land()
     def _fake_pos_publisher(self, duration=5.0):
         """Internal method to run the fake position publisher"""
         self.logger.info(f"Started vision pose publishing for {duration}s")

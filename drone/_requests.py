@@ -3,7 +3,7 @@ import json
 
 class Requests:
     def __init__(self, navigate_wait, drone_names):
-        self.api_url = 'http://192.168.2.1:8000'
+        self.api_url = 'http://192.168.2.95:8000/'
         self.navigateWait = navigate_wait
         self.drone_names = drone_names
 
