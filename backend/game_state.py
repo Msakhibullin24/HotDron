@@ -78,7 +78,7 @@ def init_game_state(game_state_api):
             cell = get_cell_from_coords(coords)
             if cell:
                 transformed_drone_pos[drone_id] = cell
-    
+
     final_drone_positions = transformed_drone_pos if transformed_drone_pos else INITIAL_DRONE_POSITIONS
 
     game_state_api["state"] = GameState(final_drone_positions, sheep_cell)
