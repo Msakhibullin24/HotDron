@@ -14,21 +14,6 @@ def from_algebraic(cell_str):
     except (ValueError, IndexError):
         return None
 
-def print_board(board):
-    print("\n  a b c d e f g h")
-    print(" +-----------------+")
-    for i, row in enumerate(board):
-        print(f"{8 - i}|", end="")
-        for j, cell in enumerate(row):
-            char = " "
-            if cell in DRONE_IDS: char = "W"
-            elif cell == SHEEP: char = "S"
-            elif (i + j) % 2 == 0: char = "."
-            print(f" {char}", end="")
-        print(f" |{8 - i}")
-    print(" +-----------------+")
-    print("  a b c d e f g h\n")
-
 def transform_game_state(gameStateRaw, include_board=False):
     response = {
         "status": gameStateRaw["status"],
