@@ -1,11 +1,48 @@
 import math
 import logging
+import socket
 import sys
 import time
 import threading
 import os
 import requests
 import json
+
+class UDPLogHandler(logging.Handler):
+    """Custom logging handler that sends logs to UDP server"""
+    def __init__(self, server_ip='192.168.2.69', server_port=9999, drone_name='unknown_drone'):
+        super().__init__()
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.drone_name = drone_name
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+    def emit(self, record):
+        try:
+            # Map Python logging levels to our custom log types
+            level_mapping = {
+                'DEBUG': 'info',
+                'INFO': 'drone',
+                'WARNING': 'warning',
+                'ERROR': 'error',
+                'CRITICAL': 'critical'
+            }
+            log_type = level_mapping.get(record.levelname, 'info')
+            
+            # Format message: drone_id|log_type|message
+            message = f"{self.drone_name}|{log_type}|{record.getMessage()}"
+            
+            # Send to UDP server
+            self.sock.sendto(message.encode('utf-8'), (self.server_ip, self.server_port))
+        except Exception:
+            # Don't raise exceptions in logging handler
+            pass
+    
+    def close(self):
+        if hasattr(self, 'sock'):
+            self.sock.close()
+        super().close()
+
 
 class DroneCoords:
     """Object to hold drone coordinates with x, y, z attributes"""
@@ -90,6 +127,19 @@ class HotDrone:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(handler)
+        
+        # UDP handler (new)
+        try:
+            self.udp_handler = UDPLogHandler(
+                server_ip='192.168.2.69', 
+                server_port=9999, 
+                drone_name=self.drone_name
+            )
+            self.logger.addHandler(self.udp_handler)
+            self.logger.info("UDP logging initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize UDP logging: {e}")
+            self.udp_handler = None
         
         # Threading control for async publisher
         self.publisher_thread = None
