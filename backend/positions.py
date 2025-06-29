@@ -76,7 +76,7 @@ def get_positions():
         return {"error": "Could not get frame from stream"}
 
     # Параметры для коррекции перспективы (взяты из detector.py)
-    pts1 = np.float32([[147, 59], [443, 33], [457, 338], [166, 347]])
+    pts1 = np.float32([[117, 29], [473, 3], [487, 368], [136, 377]])
     
     width, height = 600, 700
     pts2 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])

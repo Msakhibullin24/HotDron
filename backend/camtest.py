@@ -32,9 +32,9 @@ if __name__ == '__main__':
     SHEEP_ID = 47
 
 
-    pts1 = np.float32([[147, 59], [443, 33], [457, 338], [166, 347]])
+    pts1 = np.float32([[117, 29], [473, 3], [487, 368], [136, 377]])
     
-    width, height = 700, 700
+    width, height = 700, 900
     pts2 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
 
     matrix = cv2.getPerspectiveTransform(pts1, pts2)
@@ -76,4 +76,3 @@ if __name__ == '__main__':
             break
 
     cv2.destroyAllWindows()
-    
