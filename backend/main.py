@@ -2,6 +2,7 @@ import json
 import sys
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from starlette.responses import FileResponse
 from pydantic import BaseModel
 
@@ -106,7 +107,7 @@ async def start_game():
 
     # Get current sheep position and update state
     new_sheep_pos = get_sheep_position()
-    if not new_sheep_pos:
+    if not new_sheep_pos and CONNECT_TO_CAM_SHEEP:
         game_state_api["status"] = 'stop'  # Revert status
         raise HTTPException(status_code=404, detail="Sheep position not found")
 
@@ -118,7 +119,10 @@ async def start_game():
     game_state_api = set_sheep_pos(game_state_api, sheep_cell)
 
     try:
-        move_result = await game_state_api["moveGenerator"].get_next_move(game_state_api["state"].board)
+        move_result = await run_in_threadpool(
+            game_state_api["moveGenerator"].get_next_move, 
+            game_state_api["state"].board
+        )
         new_board_state = move_result["new_board"]
         drone_id = move_result["drone"]
         destination = move_result["to"]

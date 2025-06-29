@@ -137,9 +137,9 @@ def minimax(state, depth, alpha, beta, maximizing_player):
 class AlgorithmicMoveGenerator:
     def __init__(self, initial_game_state):
         self.game_state = initial_game_state
-        self.depth = 10 # Adjusted depth for performance
+        self.depth = 10
 
-    async def get_next_move(self, current_board_state):
+    def get_next_move(self, current_board_state):
         sheep_pos_raw = None
         for r in range(8):
             for c in range(8):
@@ -151,15 +151,19 @@ class AlgorithmicMoveGenerator:
         
         sheepPos = to_algebraic(sheep_pos_raw) if sheep_pos_raw else ""
 
-        # Use minimax to find the best move for the wolves
+        # Этот вызов minimax - самая долгая операция
         game_for_minimax = _GameStateForMinimax(current_board_state)
         _, best_move = minimax(game_for_minimax, self.depth, -math.inf, math.inf, True)
 
         if not best_move:
-            # Fallback if minimax fails to find a move
+            # Fallback
             possible_moves = get_wolf_moves(current_board_state)
             if not possible_moves:
-                return None
+                # Это означает, что ходов нет, нужно вернуть пустой результат
+                return {
+                    "new_board": None, "drone_id": None, "drone": None,
+                    "to": None, "to_aruco": None, "sheepPos": sheepPos
+                }
             best_move = possible_moves[0]
         
         (from_r, from_c), (to_r, to_c) = best_move
@@ -169,7 +173,7 @@ class AlgorithmicMoveGenerator:
         new_board[to_r][to_c] = drone_id
         new_board[from_r][from_c] = EMPTY
         
-        self.game_state.board = new_board
+        self.game_state.board = new_board  # Этот класс не должен менять состояние напрямую
         destination_algebraic = to_algebraic((to_r, to_c))
         
         to_aruco = None
@@ -179,7 +183,8 @@ class AlgorithmicMoveGenerator:
                 aruco_map = json.load(f)
             
             for marker in aruco_map:
-                if marker.get('cell').lower() == destination_algebraic:
+                # Добавил .lower() для надежности сравнения
+                if marker.get('cell') and marker.get('cell').lower() == destination_algebraic.lower():
                     to_aruco = f"aruco_{marker['id']}"
                     to_coords = [marker['x'], marker['y'], marker['z']]
                     break
@@ -195,8 +200,10 @@ class AlgorithmicMoveGenerator:
             "sheepPos": sheepPos
         }
 
-    async def get_sheep_move(self, board_state):
+    # --- ИЗМЕНЕНИЕ 2: Убираем 'async' ---
+    def get_sheep_move(self, board_state):
         game_for_minimax = _GameStateForMinimax(board_state)
+        # Этот вызов minimax - самая долгая операция
         _, best_move = minimax(game_for_minimax, self.depth, -math.inf, math.inf, False)
 
         if not best_move:
