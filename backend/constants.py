@@ -3,7 +3,7 @@ EMPTY = 0
 
 stream_url = 'http://192.168.2.59:8080/stream?topic=/main_camera/image_raw'
 
-SHEEP_ID = 47
+SHEEP_ID = 202
 DRONE_IDS = [153, 152, 154 ,151]
 INITIAL_DRONE_POSITIONS = {
     153: 'H8',
@@ -21,4 +21,5 @@ DRONE_ID_TO_DRONE_NAMES = {
 INITIAL_SHEEP_POSITION = 'A1'
 API_KEY=''
 
-CONNECT_TO_CAM = False
+CONNECT_TO_CAM_SHEEP = True
+CONNECT_TO_CAM_WOLF = False

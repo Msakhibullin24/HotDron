@@ -137,7 +137,7 @@ def minimax(state, depth, alpha, beta, maximizing_player):
 class AlgorithmicMoveGenerator:
     def __init__(self, initial_game_state):
         self.game_state = initial_game_state
-        self.depth = 5  # Adjusted depth for performance
+        self.depth = 10 # Adjusted depth for performance
 
     async def get_next_move(self, current_board_state):
         sheep_pos_raw = None
