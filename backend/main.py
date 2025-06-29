@@ -6,11 +6,17 @@ from fastapi.concurrency import run_in_threadpool
 from starlette.responses import FileResponse
 from pydantic import BaseModel
 
+import logging
+from .log_handler import setup_logging
+
 from .helpers import *
 from .constants import *
 from .positions import *
 from .game_state import GameState, init_game_state, set_sheep_pos
 from starlette.responses import FileResponse 
+
+logger = setup_logging(drone_name="main_api")
+logger.info('TEST_MSG')
 
 app = FastAPI()
 origins = [
@@ -35,7 +41,7 @@ try:
         ARUCO_MAP_DATA = json.load(f)
     CELL_TO_COORDS = {item['cell']: [item['x'], item['y'], item['z']] for item in ARUCO_MAP_DATA if 'cell' in item}
 except (FileNotFoundError, json.JSONDecodeError) as e:
-    print(f"Warning: Could not load or parse aruco_map.json: {e}")
+    logger.warning(f"Could not load or parse aruco_map.json: {e}")
 
 game_state_api = { 
     "status": "stop", 
@@ -85,6 +91,7 @@ async def get_game_state(board: bool = False):
 async def read_positions():
     positions = get_positions()
     if "error" in positions or not positions:
+        logger.error("No drone positions found")
         raise HTTPException(status_code=404, detail="No drone positions found")
 
     return positions
@@ -93,6 +100,7 @@ async def read_positions():
 async def read_positions():
     positions = get_drone_positions()
     if "error" in positions or not positions:
+        logger.error("No drone positions found")
         raise HTTPException(status_code=404, detail="No drone positions found")
 
     return positions
@@ -101,22 +109,27 @@ async def read_positions():
 async def start_game():
     global game_state_api
     if game_state_api["status"] == 'active':
+        logger.warning("Start endpoint called, but game is already active.")
         return transform_game_state(game_state_api)
 
+    logger.info("Start controller called")
     game_state_api["status"] = 'active'
 
     # Get current sheep position and update state
     new_sheep_pos = get_sheep_position()
     if not new_sheep_pos and CONNECT_TO_CAM_SHEEP:
         game_state_api["status"] = 'stop'  # Revert status
+        logger.error("Could not get sheep position from camera.")
         raise HTTPException(status_code=404, detail="Sheep position not found")
 
     sheep_cell = get_cell_from_coords(new_sheep_pos) if CONNECT_TO_CAM_SHEEP else INITIAL_SHEEP_POSITION
     if not sheep_cell:
         game_state_api["status"] = 'stop'  # Revert status
+        logger.error(f"Could not determine cell for sheep at coords {new_sheep_pos}")
         raise HTTPException(status_code=404, detail=f"Could not determine cell for sheep at coords {new_sheep_pos}")
 
     game_state_api = set_sheep_pos(game_state_api, sheep_cell)
+    logger.info(f"Sheep position set to cell: {sheep_cell}")
 
     try:
         move_result = await run_in_threadpool(
@@ -136,9 +149,10 @@ async def start_game():
             game_state_api["to"] = destination
             game_state_api["to_aruco"] = to_aruco
             game_state_api["sheepPos"] = sheepPos
+            logger.info(f"Move generated. Drone: {drone_id}, Destination: {destination} (Aruco: {to_aruco})")
 
         else:
-            print("Algorithm could not find a move.")
+            logger.warning("Algorithm could not find a move.")
             raise HTTPException(status_code=404, detail="Algorithm could not find a move")
     finally:
         return transform_game_state(game_state_api)
@@ -147,8 +161,10 @@ async def start_game():
 @app.get("/stop", response_model=GameStateResponse)
 async def stop_game():
     if(game_state_api["status"] == 'stop'):
+        logger.info("Stop endpoint called, but game is already stopped.")
         return transform_game_state(game_state_api)
 
+    logger.info("Stopping game.")
     game_state_api.update({
         "status": "stop", 
         "drone": None, 
@@ -163,18 +179,21 @@ async def stop_game():
 async def circle_sheep():
     new_sheep_pos = get_sheep_position()
     if not new_sheep_pos:
+        logger.error("Circle-sheep failed: Sheep position not found")
         raise HTTPException(status_code=404, detail="Sheep position not found")
 
-    print(f'pos {new_sheep_pos}')
+    logger.info(f'Circling sheep at pos {new_sheep_pos}')
     sheep_cell = get_cell_from_coords(new_sheep_pos)
     if not sheep_cell:
+        logger.error(f"Circle-sheep failed: Could not determine cell for sheep at coords {new_sheep_pos}")
         raise HTTPException(status_code=404, detail=f"Could not determine cell for sheep at coords {new_sheep_pos}")
         
-    print(f'cell {sheep_cell}')
+    logger.info(f'Circling sheep at cell {sheep_cell}')
     return get_block_sheep_positions(sheep_cell)
 
 @app.get("/reset")
 async def reset_game():
+    logger.info("Resetting game state via API.")
     set_default_game_state_api()
     return transform_game_state(game_state_api)
 
