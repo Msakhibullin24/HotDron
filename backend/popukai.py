@@ -7,16 +7,15 @@ def convert_to_json_coords(pixel_x, pixel_y):
     выпрямленного изображения, что значительно повышает точность.
     """
     
-    # --- Параметры преобразования ---
     
     # Размеры выпрямленного изображения
-    WARPED_WIDTH = 600.0
+    WARPED_WIDTH = 700.0
     WARPED_HEIGHT = 700.0
     
     # РАССЧИТАННЫЕ ОТСТУПЫ (в пикселях)
     # Это расстояние от края изображения до края игрового поля
-    PIXEL_MARGIN_X = 28.0
-    PIXEL_MARGIN_Y = 37.0
+    PIXEL_MARGIN_X = 0
+    PIXEL_MARGIN_Y = 0
 
     # Реальные пиксельные координаты краев доски
     board_pixel_min_x = PIXEL_MARGIN_X
@@ -30,10 +29,10 @@ def convert_to_json_coords(pixel_x, pixel_y):
     board_pixel_height = board_pixel_max_y - board_pixel_min_y
     
     # Диапазон мировых координат (из вашего JSON с верными данными)
-    WORLD_X_MIN = -1.3125
-    WORLD_X_MAX = 1.3125
-    WORLD_Y_MIN = -1.3125
-    WORLD_Y_MAX = 1.3125
+    WORLD_X_MIN = -1.5
+    WORLD_X_MAX = 1.5
+    WORLD_Y_MIN = -1.5
+    WORLD_Y_MAX = 1.5
 
     # --- Вычисления ---
 
@@ -45,9 +44,8 @@ def convert_to_json_coords(pixel_x, pixel_y):
 
     # 2. Масштабируем нормализованную координату до мировых размеров
     #    Здесь мы снова учитываем инверсию оси Y
-    world_x = -(norm_x * (WORLD_X_MAX - WORLD_X_MIN) + WORLD_X_MIN) + 0.15
-    world_y = -((1.0 - norm_y) * (WORLD_Y_MAX - WORLD_Y_MIN) + WORLD_Y_MIN) + 0.18
-    
+    world_x = -(norm_x * (WORLD_X_MAX - WORLD_X_MIN) + WORLD_X_MIN)
+    world_y = -((1.0 - norm_y) * (WORLD_Y_MAX - WORLD_Y_MIN) + WORLD_Y_MIN)
     return {
         "x": round(world_x, 4),
         "y": round(world_y, 4)
