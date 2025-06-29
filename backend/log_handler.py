@@ -42,14 +42,13 @@ def setup_logging(drone_name, log_level=logging.INFO):
     #logger.setLevel(log_level)
     logger.handlers.clear()
     
-    # Console handler
+    #Console handler
     #console_handler = logging.StreamHandler()
     #console_formatter = logging.Formatter(f'[{drone_name}] %(asctime)s - %(levelname)s - %(message)s', '%H:%M:%S')
     #console_handler.setFormatter(console_formatter)
     #logger.addHandler(console_handler)
-    s
     # UDP handler
-    #udp_handler = UDPLogHandler(drone_name=drone_name)
-    #logger.addHandler(udp_handler)
+    udp_handler = UDPLogHandler(drone_name=drone_name)
+    logger.addHandler(udp_handler)
     
     return logger

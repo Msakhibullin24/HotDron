@@ -52,6 +52,7 @@ game_state_api = {
     "state": None,
     "sheepPos": None,
 }
+last_active_game_state = None
 
 def set_default_game_state_api():
     global game_state_api
@@ -85,6 +86,10 @@ async def read_index():
 @app.get("/game-state", response_model=GameStateResponse)
 async def get_game_state(board: bool = False):
     logger.info('Get game-state start...')
+    global last_active_game_state
+    if game_state_api.get("status") == "active":
+        logger.info("Saving active game state.")
+        last_active_game_state = game_state_api.copy()
     return transform_game_state(game_state_api, include_board=board)
 
 @app.get("/positions")
@@ -200,6 +205,18 @@ async def circle_sheep():
         
     logger.info(f'Circling sheep at cell {sheep_cell}')
     return get_block_sheep_positions(sheep_cell)
+
+@app.get("/set-last-game-state", response_model=GameStateResponse)
+async def set_last_game_state():
+    logger.info("Setting last game state.")
+    global game_state_api, last_active_game_state
+    if last_active_game_state:
+        game_state_api = last_active_game_state.copy()
+        logger.info("Successfully restored last active game state.")
+        return transform_game_state(game_state_api)
+    else:
+        logger.warning("No active game state saved to restore.")
+        raise HTTPException(status_code=404, detail="No active game state saved")
 
 @app.get("/reset")
 async def reset_game():

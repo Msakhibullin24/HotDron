@@ -35,6 +35,7 @@
             <button id="startButton">Сделать ход</button>
             <button id="stopButton">Остановка хода</button>
             <button id="resetButton">Остановить игру</button>
+            <button id="setLastStateButton" title="Set Last Game State">&#x21A9;</button>
         </div>
         <div>
             <input type="checkbox" id="showBoardCheckbox">
@@ -54,6 +55,7 @@
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const resetButton = document.getElementById('resetButton');
+        const setLastStateButton = document.getElementById('setLastStateButton');
         const gameStateDisplay = document.getElementById('gameStateDisplay');
         const boardContainer = document.getElementById('board-container');
         const showBoardCheckbox = document.getElementById('showBoardCheckbox');
@@ -195,6 +197,22 @@
             } catch (error) {
                 console.error('Error resetting game:', error);
                 alert(`Error resetting game: ${error.message}`);
+            }
+        });
+
+        setLastStateButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/set-last-game-state`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                updateGameStateDisplay(data);
+                setTimeout(fetchGameState, 1000);
+            } catch (error) {
+                console.error('Error setting last game state:', error);
+                alert(`Error setting last game state: ${error.message}`);
             }
         });
 
