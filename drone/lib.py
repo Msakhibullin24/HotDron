@@ -170,8 +170,6 @@ class HotDrone:
         # UDP handler (new)
         try:
             self.udp_handler = UDPLogHandler(
-                server_ip='192.168.2.124', 
-                server_port=9999, 
                 drone_name=self.drone_name
             )
             self.logger.addHandler(self.udp_handler)
