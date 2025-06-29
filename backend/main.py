@@ -1,8 +1,5 @@
-import asyncio
 import json
 import sys
-import copy
-import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
@@ -113,7 +110,7 @@ async def start_game():
         game_state_api["status"] = 'stop'  # Revert status
         raise HTTPException(status_code=404, detail="Sheep position not found")
 
-    sheep_cell = get_cell_from_coords(new_sheep_pos)
+    sheep_cell = get_cell_from_coords(new_sheep_pos) if CONNECT_TO_CAM else INITIAL_SHEEP_POSITION
     if not sheep_cell:
         game_state_api["status"] = 'stop'  # Revert status
         raise HTTPException(status_code=404, detail=f"Could not determine cell for sheep at coords {new_sheep_pos}")

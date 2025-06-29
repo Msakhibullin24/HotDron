@@ -18,6 +18,7 @@ DRONE_ID_TO_DRONE_NAMES = {
     151: 'drone10'
 }
 
-
 INITIAL_SHEEP_POSITION = 'A1'
 API_KEY=''
+
+CONNECT_TO_CAM = False
