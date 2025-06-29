@@ -234,7 +234,8 @@ class HotDrone:
         self.logger.info("Pre-landing")
         self.set_led(effect='blink', r=255, g=255, b=255)
         if prl_aruco == None:
-            self.navigate_wait(x=telem.x, y=telem.y, z=z, speed=prl_speed, frame_id="aruco_map", tolerance=prl_tol)
+            # self.navigate_wait(x=telem.x, y=telem.y, z=0.6, speed=prl_speed, frame_id="aruco_map", tolerance=prl_tol)
+            self.logger.info("Emer-landing skip preland")
         else:
             self.navigate_wait(x=prl_bias_x, y=prl_bias_y, z=prl_z, speed=prl_speed, frame_id=prl_aruco, tolerance=prl_tol)
         self.wait(2.0)
@@ -362,4 +363,4 @@ class HotDrone:
 
     def emergency_land(self) -> None:
         self.stop_fake_pos_async()  # Stop any running publisher
-        self.land()
+        self.land(prl_aruco = None)
