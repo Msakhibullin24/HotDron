@@ -3,7 +3,7 @@ import requests
 import numpy as np
 import json
 from .popukai import get_converted_coords
-from .constants import DRONE_IDS, SHEEP_ID, stream_url
+from .constants import DRONE_IDS, SHEEP_ID, stream_url, DRONE_ID_TO_DRONE_NAMES
 
 # Получение кадров из MJPEG-потока
 def get_latest_frame(url):
@@ -191,10 +191,15 @@ def get_block_sheep_positions(sheep_cell: str):
                 neighboring_cells.append(cell_map[neighbor_cell_alg])
                 
     # Return only the coordinates
-    return [
-        {
-            "cell": cell['cell'].lower(), 
-            "coords": [cell['x'], cell['y'], cell['z']]
-        } 
-        for cell in neighboring_cells
-    ]
+    response = []
+    for i, cell in enumerate(neighboring_cells):
+        if i < len(DRONE_IDS):
+            drone_id = DRONE_IDS[i]
+            drone_name = DRONE_ID_TO_DRONE_NAMES.get(drone_id)
+            if drone_name:
+                response.append({
+                    "cell": cell['cell'].lower(),
+                    "drone_name": drone_name,
+                    "coords": [cell['x'], cell['y'], cell['z']]
+                })
+    return response
