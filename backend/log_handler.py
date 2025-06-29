@@ -26,7 +26,6 @@ class UDPLogHandler(logging.Handler):
             message = f"{self.drone_name}|{log_type}|{record.getMessage()}"
             
             # Send to UDP server
-            print(f'SENDING {message}')
             self.sock.sendto(message.encode('utf-8'), (self.server_ip, self.server_port))
         except Exception:
             # Don't raise exceptions in logging handler
@@ -40,17 +39,17 @@ class UDPLogHandler(logging.Handler):
 
 def setup_logging(drone_name, log_level=logging.INFO):
     logger = logging.getLogger()
-    logger.setLevel(log_level)
+    #logger.setLevel(log_level)
     logger.handlers.clear()
     
     # Console handler
-    console_handler = logging.StreamHandler()
-    console_formatter = logging.Formatter(f'[{drone_name}] %(asctime)s - %(levelname)s - %(message)s', '%H:%M:%S')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-    
+    #console_handler = logging.StreamHandler()
+    #console_formatter = logging.Formatter(f'[{drone_name}] %(asctime)s - %(levelname)s - %(message)s', '%H:%M:%S')
+    #console_handler.setFormatter(console_formatter)
+    #logger.addHandler(console_handler)
+    s
     # UDP handler
-    udp_handler = UDPLogHandler(drone_name=drone_name)
-    logger.addHandler(udp_handler)
+    #udp_handler = UDPLogHandler(drone_name=drone_name)
+    #logger.addHandler(udp_handler)
     
     return logger

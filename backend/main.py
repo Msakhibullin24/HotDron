@@ -128,6 +128,7 @@ async def start_game():
         raise HTTPException(status_code=404, detail="Sheep position not found")
 
     sheep_cell = get_cell_from_coords(new_sheep_pos) if CONNECT_TO_CAM_SHEEP else INITIAL_SHEEP_POSITION
+    print(f'sheep cell {sheep_cell}')
     if not sheep_cell:
         game_state_api["status"] = 'stop'  # Revert status
         logger.error(f"Could not determine cell for sheep at coords {new_sheep_pos}")
