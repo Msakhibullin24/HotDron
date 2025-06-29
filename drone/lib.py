@@ -273,9 +273,19 @@ class HotDrone:
         #     self.wait(0.5)
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
+        if self.drone_name == "drone5":
+            self.wait(0)
+            new_pos = DroneCoords(aruco_id=132)
+        elif self.drone_name == "drone10":
+            self.wait(20)
+            new_pos = DroneCoords(aruco_id=133)
+        elif self.drone_name == "drone8":
+            self.wait(40)
+            new_pos = DroneCoords(aruco_id=134)
+        elif self.drone_name == "drone12":
+            self.wait(60)
+            new_pos = DroneCoords(aruco_id=136)
         while True:
-            new_pos = wait_for_drone_move(self.drone_name)
-            start_drone_move(self.drone_name)
             if self.drone_name == "drone5": # вроде норм
                 self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
                 self.wait(3)
@@ -305,6 +315,8 @@ class HotDrone:
                 # Default fallback if drone name not recognized
                 self.logger.warning(f"Unknown drone name: {self.drone_name}")
             self.wait(1)
+            new_pos = wait_for_drone_move(self.drone_name)
+            start_drone_move(self.drone_name)
 
         # self.navigate_wait(x=0.5625, y=0.5625, z=z, speed=0.5, frame_id="aruco_map", tolerance=0.2)
         # self.wait(2)

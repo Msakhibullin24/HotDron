@@ -124,3 +124,4 @@ dmypy.json
 drone/inventory.ini
 
 .DS_Store
+drone/drone_logs.txt

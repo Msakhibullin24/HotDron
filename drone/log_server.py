@@ -2,12 +2,14 @@
 import socket
 import datetime
 import json
+import os
 from collections import defaultdict
 
 class UDPLogServer:
-    def __init__(self, host='0.0.0.0', port=9999):
+    def __init__(self, host='0.0.0.0', port=9999, log_file='drone_logs.txt'):
         self.host = host
         self.port = port
+        self.log_file = log_file
         self.drone_logs = defaultdict(list)
         self.running = True
         
@@ -37,6 +39,15 @@ class UDPLogServer:
         
         self.drone_logs[drone_id].append(log_entry)
         self.display_log(log_entry)
+        self.write_to_file(log_entry)
+    
+    def write_to_file(self, log_entry):
+        try:
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                log_line = f"[{log_entry['timestamp']}] {log_entry['drone_id']} ({log_entry['log_type']}): {log_entry['message']} [IP: {log_entry['source_ip']}]\n"
+                f.write(log_line)
+        except Exception as e:
+            print(f"Error writing to log file: {e}")
     
     def display_log(self, log_entry):
         color_codes = {
@@ -60,6 +71,7 @@ class UDPLogServer:
             server_socket.bind((self.host, self.port))
             
             print(f"🚁 UDP Drone Log Server started on {self.host}:{self.port}")
+            print(f"📝 Logging to file: {os.path.abspath(self.log_file)}")
             print("=" * 60)
             
             try:
@@ -83,12 +95,22 @@ class UDPLogServer:
                 count = len([l for l in logs if l['log_type'] == log_type])
                 if count > 0:
                     print(f"  - {log_type}: {count}")
+        
+        print(f"\n📝 All logs saved to: {os.path.abspath(self.log_file)}")
 
 if __name__ == "__main__":
     import sys
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9999
     
-    server = UDPLogServer(port=port)
+    port = 9999
+    log_file = 'drone_logs.txt'
+    
+    # Simple argument parsing
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    if len(sys.argv) > 2:
+        log_file = sys.argv[2]
+    
+    server = UDPLogServer(port=port, log_file=log_file)
     try:
         server.start_server()
     finally:
