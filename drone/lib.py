@@ -135,24 +135,27 @@ class HotDrone:
             raise RuntimeError("Arming failed!")
         self.set_led(effect='blink', r=255, g=165, b=0)
 
-        self.navigate(x=telem.x, y=telem.y, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_map")
+        self.navigate(x=telem.x, y=telem.y, z=z, yaw=math.pi, speed=0.3, frame_id="aruco_map")
         self.wait(delay)
 
         self.logger.info("Takeoff done")
         self.set_led(r=0, g=255, b=0)
         self.stop_fake_pos_async()  # Stop async publisher
 
-    def land(self, z=0.5, delay: float = 4.0, frame_id="aruco_map") -> None:
-        telem = self.get_telemetry(frame_id=frame_id)
+    def land(self, prl_aruco: str = "aruco_map", prl_speed=0.5, prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_tol=0.1, delay: float = 4.0, fall_time=1) -> None:
+        telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info("Pre-landing")
         self.set_led(effect='blink', r=255, g=255, b=255)
-        self.navigate_wait(x=telem.x, y=telem.y, z=z, frame_id=frame_id)
-        self.wait(1.0)
+        if prl_aruco == None:
+            self.navigate_wait(x=telem.x, y=telem.y, z=z, speed=prl_speed, frame_id="aruco_map", tolerance=prl_tol)
+        else:
+            self.navigate_wait(x=prl_bias_x, y=prl_bias_y, z=prl_z, speed=prl_speed, frame_id=prl_aruco, tolerance=prl_tol)
+        self.wait(2.0)
         self.logger.info("Landing")
         self.set_led(effect='blink', r=255, g=165, b=0)
         telem = self.get_telemetry(frame_id="base_link")
         self.navigate(x=telem.x, y=telem.y, z=-1, speed=1, frame_id="base_link")
-        self.wait(1)
+        self.wait(fall_time)
         self.navigate(x=telem.x, y=telem.y, z=-1, speed=0, frame_id="base_link")
         #self.autoland()
         self.force_arm(False)
@@ -185,8 +188,12 @@ class HotDrone:
             self.takeoff(z=1.5, delay=0.5, time_spam=3.5, time_warm=2, time_up=1.5)
         elif self.drone_name == "drone10":
             self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
-        elif self.drone_name == "drone8":
-            self.takeoff(z=1.5, delay=0.5, time_spam=3.5, time_warm=2, time_up=1.5)
+        elif self.drone_name == "drone8": # вроде ок
+            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+            self.wait(3)
+            self.navigate_wait(x=-0.1, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.07)
+            self.wait(3)
+            self.land(prl_aruco = "aruco_86", prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_speed=0.3, prl_tol=0.07, fall_time=1.5)
         elif self.drone_name == "drone12":
             self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
         else:
@@ -194,19 +201,10 @@ class HotDrone:
             self.logger.warning(f"Unknown drone name: {self.drone_name}, using default aruco_81")
             self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_81", tolerance=0.2)
         # self.navigate_wait(x=0.5625, y=0.5625, z=z, speed=0.5, frame_id="aruco_map", tolerance=0.2)
-        self.wait(2)
-        telem = self.get_telemetry(frame_id="aruco_map")
-        self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-        ''''''
-        self.wait(2)
-        telem = self.get_telemetry(frame_id="aruco_map")
-        self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-        self.wait(2)
-        cords = get_drone_coords(drone_name=self.drone_name)
-        self.wait(2)
-        self.navigate_wait(x=cords.x, y=cords.y, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_map", tolerance=0.1)
-        self.wait(2)
-        self.land()
+        # self.wait(2)
+        # self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.1)
+        # self.wait(2)
+        # self.land()
         ''''''
         # self.land()
     def _fake_pos_publisher(self, duration=5.0):
