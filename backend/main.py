@@ -16,7 +16,6 @@ from .game_state import GameState, init_game_state, set_sheep_pos
 from starlette.responses import FileResponse 
 
 logger = setup_logging(drone_name="main_api")
-logger.info('TEST_MSG')
 
 app = FastAPI()
 origins = [
@@ -85,28 +84,34 @@ async def read_index():
 
 @app.get("/game-state", response_model=GameStateResponse)
 async def get_game_state(board: bool = False):
+    logger.info('Get game-state start...')
     return transform_game_state(game_state_api, include_board=board)
 
 @app.get("/positions")
 async def read_positions():
+    logger.info('Get positions start...')
     positions = get_positions()
     if "error" in positions or not positions:
         logger.error("No drone positions found")
         raise HTTPException(status_code=404, detail="No drone positions found")
 
+    logger.info('Got positions successfully')
     return positions
 
 @app.get("/drone-positions")
 async def read_positions():
+    logger.info('Get drone positions start...')
     positions = get_drone_positions()
     if "error" in positions or not positions:
         logger.error("No drone positions found")
         raise HTTPException(status_code=404, detail="No drone positions found")
 
+    logger.info('Got drone positions successfully')
     return positions
 
 @app.get("/start", response_model=GameStateResponse)
 async def start_game():
+    logger.info('Drone move started...')
     global game_state_api
     if game_state_api["status"] == 'active':
         logger.warning("Start endpoint called, but game is already active.")
@@ -149,6 +154,7 @@ async def start_game():
             game_state_api["to"] = destination
             game_state_api["to_aruco"] = to_aruco
             game_state_api["sheepPos"] = sheepPos
+
             logger.info(f"Move generated. Drone: {drone_id}, Destination: {destination} (Aruco: {to_aruco})")
 
         else:
@@ -160,6 +166,7 @@ async def start_game():
 
 @app.get("/stop", response_model=GameStateResponse)
 async def stop_game():
+    logger.info('Stop game start...')
     if(game_state_api["status"] == 'stop'):
         logger.info("Stop endpoint called, but game is already stopped.")
         return transform_game_state(game_state_api)
@@ -173,6 +180,8 @@ async def stop_game():
         "to_aruco": None,
         "sheepPos": None,
     })
+
+    logger.info('Updated game state api, stopped successfully')
     return transform_game_state(game_state_api)
 
 @app.get("/circle-sheep")
@@ -205,4 +214,5 @@ if __name__ == "__main__":
         # asyncio.run(debug_game_loop(mode))
 
 
+logger.info('Game state initialization')
 game_state_api = init_game_state(game_state_api)

@@ -2,6 +2,7 @@
 import socket
 import datetime
 import json
+import os
 from collections import defaultdict
 
 class UDPLogServer:
@@ -10,7 +11,11 @@ class UDPLogServer:
         self.port = port
         self.drone_logs = defaultdict(list)
         self.running = True
-        log_filename = f"log_server_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        
+        log_dir = 'backend_logs'
+        os.makedirs(log_dir, exist_ok=True)
+        log_filename = os.path.join(log_dir, f"log_server_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        
         self.log_file = open(log_filename, 'w', encoding='utf-8')
         
     def __del__(self):
@@ -109,7 +114,8 @@ class UDPLogServer:
 
 if __name__ == "__main__":
     import sys
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9999
+    # Default port is now 9090 to match the class definition
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9090
     
     server = UDPLogServer(port=port)
     try:
