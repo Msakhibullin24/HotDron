@@ -78,9 +78,22 @@ def get_positions():
     # Параметры для коррекции перспективы (взяты из detector.py)
     pts1 = np.float32([[117, 29], [473, 3], [487, 368], [136, 377]])
 
-    
-    width, height = 700, 900
-    pts2 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
+    width, height = 700, 700
+    margin_top = -42
+    margin_bottom = -90
+    margin_left = -110
+    margin_right = -30
+
+    # 3. Новые целевые координаты (pts2)
+    #    Они определяют прямоугольник ВНУТРИ изображения 700x700,
+    #    куда будет помещено откалиброванное изображение.
+    pts2 = np.float32([
+        [margin_left, margin_top],                                   # Верхний левый угол
+        [width - margin_right, margin_top],                          # Верхний правый
+        [width - margin_right, height - margin_bottom],              # Нижний правый
+        [margin_left, height - margin_bottom]                        # Нижний левый
+    ])
+
     matrix = cv2.getPerspectiveTransform(pts1, pts2)
     
     warped_frame = cv2.warpPerspective(frame, matrix, (width, height))
