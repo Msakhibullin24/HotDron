@@ -77,8 +77,9 @@ def get_positions():
 
     # Параметры для коррекции перспективы (взяты из detector.py)
     pts1 = np.float32([[117, 29], [473, 3], [487, 368], [136, 377]])
+
     
-    width, height = 600, 700
+    width, height = 700, 900
     pts2 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
     matrix = cv2.getPerspectiveTransform(pts1, pts2)
     
