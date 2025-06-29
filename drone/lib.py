@@ -231,7 +231,7 @@ class HotDrone:
         self.set_led(r=0, g=255, b=0)
         self.stop_fake_pos_async()  # Stop async publisher
 
-    def land(self, prl_aruco: str = "aruco_map", prl_speed=0.5, prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_tol=0.1, delay: float = 4.0, fall_time=1) -> None:
+    def land(self, prl_aruco: str = "aruco_map", prl_speed=0.5, prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_tol=0.1, delay: float = 4.0, fall_time=1, fall_z=-1, fall_speed=1) -> None:
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info("Pre-landing")
         self.set_led(effect='blink', r=255, g=255, b=255)
@@ -243,9 +243,9 @@ class HotDrone:
         self.logger.info("Landing")
         self.set_led(effect='blink', r=255, g=165, b=0)
         telem = self.get_telemetry(frame_id="base_link")
-        self.navigate(x=telem.x, y=telem.y, z=-1, speed=1, frame_id="base_link")
+        self.navigate(x=telem.x, y=telem.y, z=fall_z, speed=fall_speed, frame_id="base_link")
         self.wait(fall_time)
-        self.navigate(x=telem.x, y=telem.y, z=-1, speed=0, frame_id="base_link")
+        self.navigate(x=telem.x, y=telem.y, z=fall_z, speed=0, frame_id="base_link")
         #self.autoland()
         self.force_arm(False)
         self.logger.info("Landed")
@@ -276,13 +276,17 @@ class HotDrone:
         if self.drone_name == "drone5":
             self.takeoff(z=1.5, delay=0.5, time_spam=3.5, time_warm=2, time_up=1.5)
         elif self.drone_name == "drone10":
-            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
-        elif self.drone_name == "drone8": # вроде ок
             self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
             self.wait(3)
-            self.navigate_wait(x=-0.1, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.07)
+            self.navigate_wait(x=-0.1, y=0.1, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_24", tolerance=0.07)
             self.wait(3)
-            self.land(prl_aruco = "aruco_86", prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_speed=0.3, prl_tol=0.07, fall_time=1.5)
+            self.land(prl_aruco = "aruco_24", prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1, fall_z=-1)
+        elif self.drone_name == "drone8": # вроде ок, проверить на 1550мах
+            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+            self.wait(3)
+            self.navigate_wait(x=-0.1, y=0.1, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.07)
+            self.wait(3)
+            self.land(prl_aruco = "aruco_86", prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_speed=0.3, prl_tol=0.07, fall_time=2, fall_speed=2, fall_z=-3)
         elif self.drone_name == "drone12":
             self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
         else:
