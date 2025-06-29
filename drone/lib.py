@@ -234,8 +234,7 @@ class HotDrone:
         self.logger.info("Pre-landing")
         self.set_led(effect='blink', r=255, g=255, b=255)
         if prl_aruco == None:
-            # self.navigate_wait(x=telem.x, y=telem.y, z=0.6, speed=prl_speed, frame_id="aruco_map", tolerance=prl_tol)
-            self.logger.info("Emer-landing skip preland")
+            self.navigate_wait(x=telem.x, y=telem.y, z=z, speed=prl_speed, frame_id="aruco_map", tolerance=prl_tol)
         else:
             self.navigate_wait(x=prl_bias_x, y=prl_bias_y, z=prl_z, speed=prl_speed, frame_id=prl_aruco, tolerance=prl_tol)
         self.wait(2.0)
@@ -256,7 +255,9 @@ class HotDrone:
         self.wait(1)
         self.force_arm(True)
         self.wait(1)
-        self.force_arm(False)
+        while self.get_telemetry(frame_id="body").armed:
+            self.force_arm(False)
+            self.wait(3)
         self.set_led(r=0, g=255, b=0)
 
     def wait(self, duration: float):
@@ -272,34 +273,39 @@ class HotDrone:
         #     self.wait(0.5)
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-        if self.drone_name == "drone5": # пока плохо
-            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
-            self.wait(3)
-            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_104", tolerance=0.07)
-            self.wait(3)
-            self.land(prl_aruco = "aruco_104", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.7, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.1, fall_z=-1.2)
-        elif self.drone_name == "drone10": # все ок
-            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
-            self.wait(3)
-            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_20", tolerance=0.07)
-            self.wait(3)
-            self.land(prl_aruco = "aruco_20", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.1, fall_z=-1.2)
-        elif self.drone_name == "drone8": # все ок
-            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
-            self.wait(3)
-            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_20", tolerance=0.07)
-            self.wait(3)
-            self.land(prl_aruco = "aruco_20", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=2, fall_speed=1.5, fall_z=-2)
-        elif self.drone_name == "drone12": # все ок
-            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
-            self.wait(3)
-            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_97", tolerance=0.07)
-            self.wait(3)
-            self.land(prl_aruco = "aruco_97", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.5, fall_z=-2)
-        else:
-            # Default fallback if drone name not recognized
-            self.logger.warning(f"Unknown drone name: {self.drone_name}, using default aruco_81")
-            self.navigate_wait(x=0, y=0, z=z, yaw=math.pi, speed=0.5, frame_id="aruco_81", tolerance=0.2)
+        while True:
+            new_pos = wait_for_drone_move(self.drone_name)
+            start_drone_move(self.drone_name)
+            if self.drone_name == "drone5": # вроде норм
+                self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+                self.wait(3)
+                self.navigate_wait(x=0.01, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id=f"aruco_{new_pos.aruco_id}", tolerance=0.07)
+                self.wait(3)
+                self.land(prl_aruco = f"aruco_{new_pos.aruco_id}", prl_bias_x = 0.01, prl_bias_y=0, prl_z=0.7, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.15, fall_z=-1.2)
+                self.wait(3)
+            elif self.drone_name == "drone10": # все ок
+                self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+                self.wait(3)
+                self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id=f"aruco_{new_pos.aruco_id}", tolerance=0.07)
+                self.wait(3)
+                self.land(prl_aruco = f"aruco_{new_pos.aruco_id}", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.1, fall_z=-1.2)
+            elif self.drone_name == "drone8": # все ок
+                self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+                self.wait(3)
+                self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id=f"aruco_{new_pos.aruco_id}", tolerance=0.07)
+                self.wait(3)
+                self.land(prl_aruco = f"aruco_{new_pos.aruco_id}", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=2, fall_speed=1.5, fall_z=-2)
+            elif self.drone_name == "drone12": # все ок
+                self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+                self.wait(3)
+                self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id=f"aruco_{new_pos.aruco_id}", tolerance=0.07)
+                self.wait(3)
+                self.land(prl_aruco = f"aruco_{new_pos.aruco_id}", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.5, fall_z=-2)
+            else:
+                # Default fallback if drone name not recognized
+                self.logger.warning(f"Unknown drone name: {self.drone_name}")
+            self.wait(1)
+
         # self.navigate_wait(x=0.5625, y=0.5625, z=z, speed=0.5, frame_id="aruco_map", tolerance=0.2)
         # self.wait(2)
         # self.navigate_wait(x=-0.08, y=0.1, z=1.1, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.1)
@@ -371,4 +377,4 @@ class HotDrone:
 
     def emergency_land(self) -> None:
         self.stop_fake_pos_async()  # Stop any running publisher
-        self.land(prl_aruco = None)
+        self.land()
