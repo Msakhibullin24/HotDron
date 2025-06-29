@@ -42,7 +42,9 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
 game_state_api = { 
     "status": "stop", 
     "drone": None, 
+    "drone_id": None,
     "to": None,
+    "to_aruco": None,
     "moveGenerator": None,
     "state": None,
     "sheepPos": None,
@@ -53,7 +55,9 @@ def set_default_game_state_api():
     game_state_api = init_game_state({ 
         "status": "stop", 
         "drone": None, 
+        "drone_id": None,
         "to": None,
+        "to_aruco": None,
         "moveGenerator": None,
         "state": None,
         "sheepPos": None,
@@ -64,8 +68,10 @@ set_default_game_state_api()
 
 class GameStateResponse(BaseModel):
     status: str
-    drone: int | None = None
-    to: list[float] | str | None = None
+    drone_id: int | None = None
+    drone: str | None
+    to: list[float] | None = None
+    to_aruco: str | None = None
     sheepPos: str | None = None
     board: list[list[int]] | None = None
 
@@ -119,6 +125,7 @@ async def start_game():
         new_board_state = move_result["new_board"]
         drone_id = move_result["drone"]
         destination = move_result["to"]
+        to_aruco = move_result["to_aruco"]
         sheepPos = move_result["sheepPos"]
 
         if new_board_state:
@@ -126,6 +133,7 @@ async def start_game():
             game_state_api["state"].current_player *= -1
             game_state_api["drone"] = drone_id
             game_state_api["to"] = destination
+            game_state_api["to_aruco"] = to_aruco
             game_state_api["sheepPos"] = sheepPos
 
             emulate_sheep()
@@ -145,7 +153,9 @@ async def stop_game():
     game_state_api.update({
         "status": "stop", 
         "drone": None, 
+        "drone_id": None,
         "to": None,
+        "to_aruco": None,
         "sheepPos": None,
     })
     return transform_game_state(game_state_api)

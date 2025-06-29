@@ -1,7 +1,8 @@
 import math
 import copy
+import json
 from .helpers import to_algebraic
-from .constants import SHEEP, EMPTY
+from .constants import SHEEP, EMPTY, DRONE_ID_TO_DRONE_NAMES
 
 def is_valid_pos(r, c):
     return 0 <= r < 8 and 0 <= c < 8
@@ -170,11 +171,27 @@ class AlgorithmicMoveGenerator:
         
         self.game_state.board = new_board
         destination_algebraic = to_algebraic((to_r, to_c))
+        
+        to_aruco = None
+        to_coords = None
+        try:
+            with open('aruco_map.json', 'r') as f:
+                aruco_map = json.load(f)
+            
+            for marker in aruco_map:
+                if marker.get('cell').lower() == destination_algebraic:
+                    to_aruco = f"aruco_{marker['id']}"
+                    to_coords = [marker['x'], marker['y'], marker['z']]
+                    break
+        except (FileNotFoundError, json.JSONDecodeError):
+            print("Warning: Could not load or parse aruco_map.json to find aruco id.")
 
         return {
             "new_board": new_board,
-            "drone": drone_id,
-            "to": destination_algebraic,
+            "drone_id": drone_id,
+            "drone": DRONE_ID_TO_DRONE_NAMES.get(drone_id),
+            "to": to_coords,
+            "to_aruco": to_aruco,
             "sheepPos": sheepPos
         }
 

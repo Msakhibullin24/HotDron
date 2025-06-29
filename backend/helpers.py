@@ -33,7 +33,9 @@ def transform_game_state(gameStateRaw, include_board=False):
     response = {
         "status": gameStateRaw["status"],
         "drone": gameStateRaw["drone"],
+        "drone_id": gameStateRaw["drone_id"],
         "to": gameStateRaw["to"],
+        "to_aruco": (gameStateRaw["to_aruco"]) if gameStateRaw["to_aruco"] else None,
         "sheepPos": gameStateRaw["sheepPos"]
     }
     if include_board and gameStateRaw.get("state"):
