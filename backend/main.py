@@ -5,6 +5,7 @@ import copy
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import FileResponse
 from pydantic import BaseModel
 
 from .helpers import *
@@ -94,6 +95,7 @@ async def read_positions():
 
 @app.get("/start", response_model=GameStateResponse)
 async def start_game():
+    global game_state_api
     if game_state_api["status"] == 'active':
         return transform_game_state(game_state_api)
 
@@ -110,7 +112,7 @@ async def start_game():
         game_state_api["status"] = 'stop'  # Revert status
         raise HTTPException(status_code=404, detail=f"Could not determine cell for sheep at coords {new_sheep_pos}")
 
-    set_sheep_pos(game_state_api, sheep_cell)
+    game_state_api = set_sheep_pos(game_state_api, sheep_cell)
 
     try:
         move_result = await game_state_api["moveGenerator"].get_next_move(game_state_api["state"].board)
@@ -202,7 +204,7 @@ if __name__ == "__main__":
         mode = "ai"
         if len(sys.argv) > 2 and sys.argv[2] in ["ai", "alg"]:
             mode = sys.argv[2]
-        asyncio.run(debug_game_loop(mode))
+        # asyncio.run(debug_game_loop(mode))
 
 
 game_state_api = init_game_state(game_state_api)
