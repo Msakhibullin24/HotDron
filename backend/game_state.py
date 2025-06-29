@@ -97,6 +97,24 @@ def init_game_state(game_state_api):
 
     return game_state_api
 
+def set_real_drone_pos(game_state_api):
+    sheep_pos_coords = get_sheep_position()
+    sheep_cell = (get_cell_from_coords(sheep_pos_coords) or INITIAL_SHEEP_POSITION) if CONNECT_TO_CAM_SHEEP else INITIAL_SHEEP_POSITION
+
+    drone_pos_coords = get_drone_positions()
+    
+    transformed_drone_pos = {}
+    if drone_pos_coords:
+        for drone_id, coords in drone_pos_coords.items():
+            cell = get_cell_from_coords(coords)
+            if cell:
+                transformed_drone_pos[drone_id] = cell
+
+    final_drone_positions = (transformed_drone_pos if transformed_drone_pos else INITIAL_DRONE_POSITIONS) if CONNECT_TO_CAM_WOLF else INITIAL_DRONE_POSITIONS
+
+    game_state_api["state"] = GameState(final_drone_positions, sheep_cell)
+    return game_state_api
+
 def set_sheep_pos(game_state_api, new_sheep_pos):
     """
     Updates the sheep's position on the board and in the game state.

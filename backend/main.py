@@ -12,7 +12,7 @@ from .log_handler import setup_logging
 from .helpers import *
 from .constants import *
 from .positions import *
-from .game_state import GameState, init_game_state, set_sheep_pos
+from .game_state import GameState, init_game_state, set_sheep_pos, set_real_drone_pos
 from starlette.responses import FileResponse 
 
 logger = setup_logging(drone_name="main_api")
@@ -217,6 +217,14 @@ async def set_last_game_state():
     else:
         logger.warning("No active game state saved to restore.")
         raise HTTPException(status_code=404, detail="No active game state saved")
+
+@app.get("/set-real-pos", response_model=GameStateResponse)
+async def set_real_pos():
+    logger.info("Setting real positions.")
+    global game_state_api
+    game_state_api = set_real_drone_pos(game_state_api)
+    logger.info("Successfully set real positions.")
+    return transform_game_state(game_state_api)
 
 @app.get("/reset")
 async def reset_game():
