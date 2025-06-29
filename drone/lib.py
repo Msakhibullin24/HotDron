@@ -276,9 +276,9 @@ class HotDrone:
         elif self.drone_name == "drone10":
             self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
             self.wait(3)
-            self.navigate_wait(x=-0.1, y=0.1, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_24", tolerance=0.07)
+            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_73", tolerance=0.07)
             self.wait(3)
-            self.land(prl_aruco = "aruco_24", prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1, fall_z=-1)
+            self.land(prl_aruco = "aruco_73", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1, fall_z=-1)
         elif self.drone_name == "drone8": # вроде ок, проверить на 1550мах
             self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
             self.wait(3)
