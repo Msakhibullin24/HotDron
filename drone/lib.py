@@ -272,22 +272,30 @@ class HotDrone:
         #     self.wait(0.5)
         telem = self.get_telemetry(frame_id="aruco_map")
         self.logger.info(f"Mode: {telem.mode} Arm: {telem.armed}")
-        if self.drone_name == "drone5":
-            self.takeoff(z=1.5, delay=0.5, time_spam=3.5, time_warm=2, time_up=1.5)
-        elif self.drone_name == "drone10":
+        if self.drone_name == "drone5": # пока плохо
             self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
             self.wait(3)
-            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_73", tolerance=0.07)
+            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_104", tolerance=0.07)
             self.wait(3)
-            self.land(prl_aruco = "aruco_73", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1, fall_z=-1)
-        elif self.drone_name == "drone8": # вроде ок, проверить на 1550мах
+            self.land(prl_aruco = "aruco_104", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.7, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.1, fall_z=-1.2)
+        elif self.drone_name == "drone10": # все ок
             self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
             self.wait(3)
-            self.navigate_wait(x=-0.1, y=0.1, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_86", tolerance=0.07)
+            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_20", tolerance=0.07)
             self.wait(3)
-            self.land(prl_aruco = "aruco_86", prl_bias_x = -0.08, prl_bias_y=0.1, prl_z=0.6, prl_speed=0.3, prl_tol=0.07, fall_time=2, fall_speed=2, fall_z=-3)
-        elif self.drone_name == "drone12":
-            self.takeoff(z=1.5, delay=0.5, time_spam=3, time_warm=2, time_up=0.5)
+            self.land(prl_aruco = "aruco_20", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.1, fall_z=-1.2)
+        elif self.drone_name == "drone8": # все ок
+            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+            self.wait(3)
+            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_20", tolerance=0.07)
+            self.wait(3)
+            self.land(prl_aruco = "aruco_20", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=2, fall_speed=1.5, fall_z=-2)
+        elif self.drone_name == "drone12": # все ок
+            self.takeoff(z=1.5, delay=4, time_spam=3.5, time_warm=2, time_up=1.5)
+            self.wait(3)
+            self.navigate_wait(x=-0.1, y=0, z=1.2, yaw=math.pi, speed=0.3, frame_id="aruco_97", tolerance=0.07)
+            self.wait(3)
+            self.land(prl_aruco = "aruco_97", prl_bias_x = -0.1, prl_bias_y=0, prl_z=0.6, prl_speed=0.2, prl_tol=0.07, fall_time=1.5, fall_speed=1.5, fall_z=-2)
         else:
             # Default fallback if drone name not recognized
             self.logger.warning(f"Unknown drone name: {self.drone_name}, using default aruco_81")
