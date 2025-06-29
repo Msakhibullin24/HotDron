@@ -10,7 +10,7 @@ import json
 
 class UDPLogHandler(logging.Handler):
     """Custom logging handler that sends logs to UDP server"""
-    def __init__(self, server_ip='192.168.2.69', server_port=9999, drone_name='unknown_drone'):
+    def __init__(self, server_ip='192.168.2.124', server_port=9999, drone_name='unknown_drone'):
         super().__init__()
         self.server_ip = server_ip
         self.server_port = server_port
@@ -225,7 +225,7 @@ class HotDrone:
         # UDP handler (new)
         try:
             self.udp_handler = UDPLogHandler(
-                server_ip='192.168.2.69', 
+                server_ip='192.168.2.124', 
                 server_port=9999, 
                 drone_name=self.drone_name
             )
