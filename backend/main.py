@@ -133,8 +133,6 @@ async def start_game():
             game_state_api["to_aruco"] = to_aruco
             game_state_api["sheepPos"] = sheepPos
 
-            emulate_sheep()
-            
         else:
             print("Algorithm could not find a move.")
             raise HTTPException(status_code=404, detail="Algorithm could not find a move")
@@ -174,36 +172,6 @@ async def circle_sheep():
 @app.get("/reset")
 async def reset_game():
     set_default_game_state_api()
-    return transform_game_state(game_state_api)
-
-async def emulate_sheep():
-    if game_state_api["status"] != 'active':
-        raise HTTPException(
-            status_code=400, 
-            detail="Game is not active. Please start the game first."
-        )
-
-    move_result = await game_state_api["moveGenerator"].get_sheep_move(game_state_api["state"].board)
-    
-    if move_result and move_result["new_board"]:
-        new_board_state = move_result["new_board"]
-        from_pos = move_result["from"]
-        to_pos = move_result["to"]
-
-        game_state_api["state"].board = new_board_state
-        game_state_api["state"].current_player *= -1
-
-        game_state_api["drone"] = None
-        game_state_api["to"] = None
-        
-        print(f"Sheep moved from {from_pos} to {to_pos}")
-
-    else:
-        print("Sheep has no moves. Wolves win!")
-        game_state_api["status"] = "stop"
-        game_state_api["drone"] = None
-        game_state_api["to"] = "WOLVES_WIN"
-
     return transform_game_state(game_state_api)
 
 if __name__ == "__main__":
